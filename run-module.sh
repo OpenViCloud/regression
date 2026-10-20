@@ -12,8 +12,8 @@
 #
 # Usage:  bash run-module.sh <kubeconfig> <src tree> <module> <label> <work dir> <log dir> [cli binary]
 #   <kubeconfig>  ~/.kube/titan-staging.yaml (staging) or ~/.lima/titan-k3s/copied-from-guest/kubeconfig.yaml (dev)
-#   <src tree>    a checkout of this repository at the sha the release pins (with the release's new specs
-#                 copied in at their repo path)
+#   <src tree>    `git archive <sha>` of this repository at the sha the release pins, extracted (with the
+#                 release's new specs copied in at their repo path); run this script from a checkout
 #   <module>      a module of this repository (vm), or a spec directory relative to <src tree>
 #   <label>       suffix of the job name: regression-<module>-<label>
 #   <work dir>    runner output, outside the repo (scratchpad)

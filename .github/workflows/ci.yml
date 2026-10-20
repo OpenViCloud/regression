@@ -1,7 +1,7 @@
 name: CI
 
-# Tests of the suite's tooling only: the lib helpers that run without Playwright (selftest/) and the three report
-# scripts. The specs themselves need a running environment and run in the cluster's runner, not here.
+# Tests of the suite's tooling only: the lib helpers that run without Playwright (selftest/) and the report and
+# log scripts. The specs themselves need a running environment and run in the cluster's runner, not here.
 on:
   push:
     branches: [main]

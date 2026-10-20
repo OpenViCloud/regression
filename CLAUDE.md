@@ -21,7 +21,7 @@ Repo này không có hệ thống nào để chạy: spec chạy bằng runner `
 ├── trim-cp-log.py   # run-module.sh lọc control-plane.log: bỏ dòng info của hosting, routing, SQL command (warn/fail và log Titan giữ)
 ├── test_*.py        # test của ba script trên — python3 test_count_cases.py …
 ├── selftest/        # test của lib không cần Playwright; ngoài lib/ vì runner chép mọi file của lib/ vào e2e/ và `testMatch`
-│                   #   mặc định của Playwright chạy cả *.test.ts — node --test 'selftest/*.test.ts' (Node 22 tự bỏ phần
+│                   #   mặc định của Playwright chạy cả *.test.ts — node --test 'selftest/*.test.ts' (Node ≥ 22.18 tự bỏ phần
 │                   #   type của TypeScript, không cài gì; dạng thư mục `node --test selftest/` không chạy)
 ├── lib/             # helper dùng chung, nạp cùng MỌI module
 │   ├── auth.ts      #   headersOf('tenant' | 'admin'): đăng nhập trong pod, lại khi token còn < 2 phút hoặc gặp 401
@@ -35,7 +35,7 @@ Repo này không có hệ thống nào để chạy: spec chạy bằng runner `
 
 ## Viết spec
 
-- Spec của case nằm ở `<module>/`, **ID trong tên test** (`test('VM-03 stop từ Running', …)`), nguồn của kỳ vọng ở comment đầu test — đọc lại code ở chỗ cột **Nguồn** của `plan.md` trỏ tới. Luật ghi nguồn ở đầu `plan.md`: file trong repo này ghi `file:line`; repo khác ghi `<repo>:<path>` kèm tên hàm/type/method/test (doc của titan kèm `#anchor`), **không** số dòng. Kỳ vọng không có nguồn là đoán.
+- Spec của case nằm ở `<module>/`, **ID trong tên test** (`test('VM-03 stop từ Running', …)`), nguồn của kỳ vọng ở comment đầu test — đọc lại code ở chỗ cột **Nguồn** của `plan.md` trỏ tới. Luật ghi nguồn ở đầu `plan.md` (nguồn duy nhất của luật này): file trong repo này ghi `file:line`; repo khác ghi `<repo>:<path>` kèm tên hàm/type/method/test, **không** số dòng (trừ ref ghim một commit); doc của titan trong `plan.md` là link đầy đủ kèm `#anchor`, trong comment spec `OpenViCloud/titan:docs/…#anchor`. Ref cũ còn số dòng là rủi ro chấp nhận, sửa khi chạm. Kỳ vọng không có nguồn là đoán.
 - Mọi case của module có spec chạy xanh ⇒ cột **Spec** của README = `yes`. Spec mới và dòng README vào cùng PR.
 - Runner nạp **phẳng** (`/specs/*.ts`): spec import helper bằng `./auth`, không `../lib/auth`. Tên file không trùng giữa `lib/` và module.
 - Mọi tài nguyên test mang tên `rg-<loại>-<lượt>` (`<lượt>` = thời điểm job bắt đầu, base36); network của lượt là `rg-net-<lượt>`, module sau tìm nó theo tiền tố. Module nào tạo thì `finally` của module đó xoá — trừ network của lượt, do `network-lifecycle` xoá; module `cleanup` quét lại.
