@@ -26,16 +26,17 @@ which signs in with the test accounts there, so no credential passes through the
 ## Run one module
 
 ```sh
-bash run-module.sh <kubeconfig> <checkout of this repo> <module> <label> <work dir> <log dir> [cli binary]
-python3 count-cases.py <work dir>/runner.log
+bash run-module.sh <kubeconfig> <source tree> <module> <label> <work dir> <log dir> [cli binary]
+python3 count-cases.py <work dir of each module>/runner.log ...
 ```
 
-The full procedure (order, steps outside the runner, evidence) is
+The source tree is `git archive <sha>` of this repository, extracted, with any new specs copied in; run the
+script from a checkout so its first line names the commit. The full procedure (order, steps outside the runner, evidence) is
 [`release:regression`](https://github.com/OpenViCloud/titan/blob/main/.claude/commands/release/regression.md).
 
 ## Test the tooling
 
-Needs Node 22 (it strips the TypeScript types itself) and Python 3. CI runs the same:
+Needs Node 22.18 or later (it strips the TypeScript types without a flag; CI pins 22.23.3) and Python 3. CI runs the same:
 
 ```sh
 node --test 'selftest/*.test.ts'
@@ -46,7 +47,7 @@ python3 test_trim_cp_log.py
 
 ## Modules and order
 
-The order is the job order: a later module may use what an earlier one left in the run (the run's network); the
+Rows the runner runs go in this order, one job each: a later module may use what an earlier one left in the run (the run's network); the
 module that changes the tenant's state and the one that deletes the run's network go last.
 
 | # | Module | Measures | Dev | Staging | Spec |
@@ -80,13 +81,15 @@ database; on staging an approved `L-x`), after `concurrency` it runs `billing/ch
 module `cli` needs the agent to copy the binary into the pod when the spec logs `BINARY_WAIT`.
 
 Not run by the runner (Phase 4 of `release:regression`): `observation` — state changed on the Incus host outside
-OpenViCloud, needs an approved `L-x` command; `site` — the public site through Playwright on the agent's machine;
-`worker`, `control-plane-image` — read-only `gh`/`curl`/`kubectl` on the agent's machine.
+OpenViCloud, needs an approved `L-x` command; `site` — the public site through Playwright MCP on the agent's machine;
+`worker`, `control-plane-image` — read-only `gh`/`curl`/`kubectl` on the agent's machine; `terraform-provider` —
+`TF_ACC` of the provider repository on the agent's machine, against staging.
 
-**Spec** is `yes` when every case of the module in `plan.md` has a spec that ran green, except `(host)` cases (Phase 4
+**Spec** is `yes` when every case of the module in `plan.md` has a spec that ran green on staging at a release, except `(host)` cases (Phase 4
 of the release), **NOT COVERED** cases (the reason is in `plan.md`) and cases not applicable to the measured
 environment (the spec calls `test.skip` with the reason, e.g. VM-12 with a single zone). `ACT-*` cases are measured
-in the module that owns the resource. Specs pick the first zone with a listed template (`lib/fixtures.ts`,
+in the module that owns the resource. A case with no spec yet gets one at the next release; a case no spec can be
+written for and that Phase 4 does not measure by hand is **NOT COVERED**, with the reason in its row of `plan.md`. Specs pick the first zone with a listed template (`lib/fixtures.ts`,
 `envOf()`); staging's zone is `singapore01`.
 
 ## License
