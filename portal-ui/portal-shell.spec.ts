@@ -2,9 +2,8 @@ import { test, expect, type Page } from '@playwright/test'
 import { ADMIN, PORTAL, closeSessions, pageOf, useBrowser } from './auth'
 import { RESULTS, log, startLog } from './api'
 
-// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-09..UI-11 and UI-15 of plan.md: theme, brand, language and the shell of both portals.
-// Colours are the token values of portal/src/index.css (light in @theme, dark under [data-theme=dark]).
+// Colours are the token values of OpenViCloud/titan-cloud-console:portal/src/index.css (light in @theme, dark under [data-theme=dark]).
 const LIGHT_BACKGROUND = 'rgb(243, 244, 247)'
 const DARK_BACKGROUND = 'rgb(13, 14, 18)'
 
@@ -34,7 +33,7 @@ test.describe.serial('portal-ui shell', () => {
     await closeSessions()
   })
 
-  // portal/src/index.css (@theme, prefers-color-scheme block) · portal/src/lib/theme.ts
+  // OpenViCloud/titan-cloud-console:portal/src/index.css (@theme, prefers-color-scheme block) · OpenViCloud/titan-cloud-console:portal/src/lib/theme.ts
   test('UI-09 the theme follows the OS, and the account-menu choice wins and survives a reload', async () => {
     const page = await pageOf('tenant')
     await page.evaluate(() => localStorage.removeItem('ovc-theme'))
@@ -67,8 +66,8 @@ test.describe.serial('portal-ui shell', () => {
     log('UI-09 system→dark, Light kept after reload, System back to OS')
   })
 
-  // OpenViCloud/titan-cloud-console:portal/index.html <title>, portal/src/components/MainLayout.tsx
-  // OpenViCloud/titan-admin-console:portal/admin.html <title>, portal/src/admin/layout/AdminLayout.tsx
+  // OpenViCloud/titan-cloud-console:portal/index.html <title> · OpenViCloud/titan-cloud-console:portal/src/components/MainLayout.tsx
+  // OpenViCloud/titan-admin-console:portal/admin.html <title> · OpenViCloud/titan-admin-console:portal/src/admin/layout/AdminLayout.tsx
   test('UI-10 both portals carry the OpenViCloud brand', async () => {
     const tenant = await pageOf('tenant')
     await tenant.goto(PORTAL + '/', { waitUntil: 'networkidle' })
@@ -85,7 +84,7 @@ test.describe.serial('portal-ui shell', () => {
     log('UI-10 titles OpenViCloud / OpenViCloud Admin')
   })
 
-  // portal/src/components/shell/AppShell.tsx (drawer under 900px)
+  // OpenViCloud/titan-cloud-console:portal/src/components/shell/AppShell.tsx (drawer under 900px)
   test('UI-11 at 375px the menu is a drawer and nothing scrolls sideways', async () => {
     const page = await pageOf('tenant')
     await page.setViewportSize({ width: 375, height: 812 })
@@ -103,7 +102,8 @@ test.describe.serial('portal-ui shell', () => {
     log('UI-11 scrollWidth 375, drawer opens and closes on navigation')
   })
 
-  // portal/src/i18n/LanguageProvider.tsx · portal/src/i18n/lang.ts · portal/src/components/shell/AppShell.tsx
+  // OpenViCloud/titan-cloud-console:portal/src/i18n/LanguageProvider.tsx · OpenViCloud/titan-cloud-console:portal/src/i18n/lang.ts
+  // OpenViCloud/titan-cloud-console:portal/src/components/shell/AppShell.tsx
   // (OpenViCloud/titan:docs/features/cloud-console/design.md#portal-language)
   test('UI-15 the language starts from the IP country, the account-menu choice wins and survives a reload', async () => {
     const page = await pageOf('tenant')

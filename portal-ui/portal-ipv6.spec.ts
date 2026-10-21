@@ -4,7 +4,6 @@ import { RESULTS, call, expectStatus, get, log, pollUntil, startLog } from './ap
 import { cleanUp } from './clean-up'
 import { createVm, deleteVmAndWait, envOf, existenceShape, nameOf, waitNetwork, networkUsable, runs, waitVm } from './fixtures'
 
-// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-16..17 of plan.md: a network with public IPv6 through the form, a VM on it, and a load
 // balancer through its form. beta-user holds MaxNetworks = 1 (the shared run network, with no IPv6), so this
 // module raises maxNetworks by one for its own second network and gives it back in afterAll — the exact pattern
@@ -77,7 +76,7 @@ test.describe.serial('portal-ui flows: IPv6 network, VM and load balancer', () =
   })
 
   // OpenViCloud/titan:docs/features/network/design.md#ipv6-public · OpenViCloud/titan:docs/features/cloud-console/design.md#quota-card
-  // portal/src/components/NetworkCreateModal.tsx · portal/src/components/QuotaCard.tsx
+  // OpenViCloud/titan-cloud-console:portal/src/components/NetworkCreateModal.tsx · OpenViCloud/titan-cloud-console:portal/src/components/QuotaCard.tsx
   test('UI-16 a network with public IPv6 through the form, a VM on it, and the VM page showing its address', async () => {
     const { zoneId, smallTier, templateId } = await envOf()
     const clusters = await get('admin', '/v1/admin/clusters') as any[]
@@ -156,8 +155,8 @@ test.describe.serial('portal-ui flows: IPv6 network, VM and load balancer', () =
     log(`UI-16 vm=${vmName} publicIpv6=${vm.publicIpv6Address}`)
   })
 
-  // OpenViCloud/titan:docs/features/load-balancer/design.md#portal · portal/src/pages/LoadBalancerListPage.tsx
-  // portal/src/components/LoadBalancerFormModal.tsx
+  // OpenViCloud/titan:docs/features/load-balancer/design.md#portal · OpenViCloud/titan-cloud-console:portal/src/pages/LoadBalancerListPage.tsx
+  // OpenViCloud/titan-cloud-console:portal/src/components/LoadBalancerFormModal.tsx
   test('UI-17 create a load balancer through the form, edit its listeners, then delete it', async () => {
     test.skip(networkId === '' || vmId === '', 'UI-16 did not produce an IPv6 network and VM')
     // pageOf() again after every wait on the API: a sign-in closes the old context (auth.ts headersOf).

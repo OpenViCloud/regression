@@ -3,13 +3,12 @@ import { PORTAL, closeSessions, pageOf, useBrowser } from './auth'
 import { RESULTS, bodyOf, call, expectStatus, get, log, newKey, pollUntil, startLog } from './api'
 import { envOf, nameOf, runNetwork, runs, waitVm, waitVolume } from './fixtures'
 
-// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-18..21, UI-24..26 of plan.md: form validation (network, VM, firewall rule), the buy-credit
 // amount parser, the VM delete button's existence/transition invariant, deleting a volume that still has a
 // snapshot, and the 404 page. UI-22 is NOT COVERED (plan.md says why: needs a provider-refused delete
 // on staging, no fault injection on any environment).
 //
-// POLL_MS — portal/src/hooks/pollUntilSettled.ts:10 — is the interval the VM list page itself refetches at
+// POLL_MS — OpenViCloud/titan-cloud-console:portal/src/hooks/pollUntilSettled.ts — is the interval the VM list page itself refetches at
 // while a row is waiting, used below to size how long an "enabled" assertion is given to catch up with it.
 //
 // UI-23 (network with a load balancer and no VM blocks Delete with "Delete the load balancers of this network
@@ -19,8 +18,8 @@ import { envOf, nameOf, runNetwork, runs, waitVm, waitVolume } from './fixtures'
 // (OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs BeginLoadBalancerBackend requires
 // NetworkId == networkId). While the load balancer lives, deleting that VM is refused
 // (OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync, VM_IS_LOAD_BALANCER_BACKEND),
-// so the network always has a live VM on it too. portal/src/pages/NetworkListPage.tsx:403-410
-// (deleteBlockedTitle) checks attachedNetworkIds before networksWithALoadBalancer, so the title shown would be
+// so the network always has a live VM on it too.
+// OpenViCloud/titan-cloud-console:portal/src/pages/NetworkListPage.tsx (deleteBlockedTitle) checks attachedNetworkIds before networksWithALoadBalancer, so the title shown would be
 // "Remove all VMs first" (t.networks.removeVmsFirst), never the load-balancer title the case asks for.
 
 test.describe.serial('portal-ui forms: network, firewall, volume and VM form validation', () => {
@@ -113,8 +112,8 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
     await closeSessions()
   })
 
-  // OpenViCloud/titan:docs/features/network/design.md#network-portal · portal/src/components/NetworkCreateModal.tsx:59-64,161
-  // (zoneRequired, shown under the field) · portal/src/i18n/en.ts:295 / vi.ts:291
+  // OpenViCloud/titan:docs/features/network/design.md#network-portal · OpenViCloud/titan-cloud-console:portal/src/components/NetworkCreateModal.tsx
+  // (zoneRequired, shown under the field) · OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts, vi.ts (networkCreate.zoneRequired)
   test('UI-19 Create Network with no zone shows a field error and sends no request', async () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/networks', { waitUntil: 'networkidle' })
@@ -137,8 +136,8 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
     log('UI-19 "Choose a zone" shown, no POST sent')
   })
 
-  // OpenViCloud/titan:docs/features/vm/design.md#vm-portal · portal/src/components/VmCreateModal.tsx:126-136,150
-  // (choicesRequired, shown as apiError when the template is left empty) · portal/src/i18n/en.ts:198
+  // OpenViCloud/titan:docs/features/vm/design.md#vm-portal · OpenViCloud/titan-cloud-console:portal/src/components/VmCreateModal.tsx
+  // (choicesRequired, shown as apiError when the template is left empty) · OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts (vmCreate.choicesRequired)
   test('UI-24 Create VM with no template shows "Choose a zone, network, template and size." and sends no request', async () => {
     await runNetwork() // the Network select must offer at least one usable network, or Create VM stays disabled
     const { zoneId, smallTier } = await envOf()
@@ -168,10 +167,10 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
     log('UI-24 choicesRequired message shown, no POST sent')
   })
 
-  // OpenViCloud/titan:docs/features/network/design.md#network-portal · portal/src/pages/NetworkListPage.tsx:56-111,142-150,154-165
+  // OpenViCloud/titan:docs/features/network/design.md#network-portal · OpenViCloud/titan-cloud-console:portal/src/pages/NetworkListPage.tsx
   // (FirewallRuleCreateForm: one port typed, End Port empty, becomes startPort=endPort; startPortRequired when
   // Start Port is empty; the CIDR <label> carries no htmlFor, so it is found by placeholder, not getByLabel)
-  // portal/src/i18n/en.ts:379-380,396 (toggle button "Add Rule", submit button "Add rule")
+  // OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts (firewall.addRule: toggle button "Add Rule"; firewall.submit: submit button "Add rule")
   test('UI-25 a TCP rule with only Start Port sends startPort=endPort=8080; a second with no Start Port is refused client-side', async () => {
     const network = await runNetwork()
     runNetworkId = network.id
@@ -221,9 +220,9 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
     log('UI-25 second rule refused client-side, no POST sent')
   })
 
-  // OpenViCloud/titan:docs/features/volume/design.md#volume-portal · portal/src/pages/VolumeListPage.tsx:396-410
-  // (VOLUME_HAS_SNAPSHOTS → t.volumes.hasSnapshots toast; dialog closes via setDeleteTarget(null) either way)
-  // portal/src/i18n/en.ts:428
+  // OpenViCloud/titan:docs/features/volume/design.md#volume-portal · OpenViCloud/titan-cloud-console:portal/src/pages/VolumeListPage.tsx
+  // (handleConfirmDelete: VOLUME_HAS_SNAPSHOTS → t.volumes.hasSnapshots toast; dialog closes via setDeleteTarget(null) either way)
+  // OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts (volumes.hasSnapshots)
   test('UI-21 deleting a volume that still has a snapshot is refused, the dialog closes, the volume stays', async () => {
     const { zoneId, volumeOfferingId } = await envOf()
     const created = await call('tenant', 'POST', '/v1/tenant/volumes',
@@ -256,9 +255,10 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
     log(`UI-21 volume ${volumeName} survives delete attempt while it has a snapshot`)
   })
 
-  // OpenViCloud/titan:docs/features/vm/design.md#vm-portal · portal/src/lib/vmState.ts:93-102 (canDeleteVm: false only while
+  // OpenViCloud/titan:docs/features/vm/design.md#vm-portal · OpenViCloud/titan-cloud-console:portal/src/lib/vmState.ts (canDeleteVm: false only while
   // transition === 'Creating' && currentExistence === 'NotCreated'; true once Exists, even mid-Creating)
-  // portal/src/components/vm/VmActions.tsx:118-126 · portal/src/hooks/pollUntilSettled.ts:10 (POLL_MS = 5000,
+  // OpenViCloud/titan-cloud-console:portal/src/components/vm/VmActions.tsx (VmActions: Delete disabled by canDeleteVm)
+  // OpenViCloud/titan-cloud-console:portal/src/hooks/pollUntilSettled.ts (POLL_MS = 5000,
   // the interval the VM list itself refetches at while a row waits)
   test('UI-20 creating a VM through the form: Delete is disabled only while Creating and NotCreated, enabled once Exists', async () => {
     const POLL_MS = 5_000
@@ -347,9 +347,9 @@ test.describe.serial('portal-ui forms: buy credit and not-found page', () => {
   })
 
   // OpenViCloud/titan:docs/features/billing/topup/design.md#topup-portal · OpenViCloud/titan:docs/features/cloud-console/design.md#portal-language
-  // portal/src/pages/WalletPage.tsx:347-357 (parseWholeVnd gates Continue) · portal/src/lib/money.ts:79
-  // (parseWholeVnd('500.000') === 500000; parseWholeVnd('5a0') === null) · portal/src/lib/sepay.ts:6-16 (vietQrUrl
-  // query string carries amount=<integer>) · portal/src/i18n/vi.ts:566,571 (Nạp tiền / Tiếp tục)
+  // OpenViCloud/titan-cloud-console:portal/src/pages/WalletPage.tsx (BuyCreditDialog: parseWholeVnd gates Continue) · OpenViCloud/titan-cloud-console:portal/src/lib/money.ts
+  // (parseWholeVnd('500.000') === 500000; parseWholeVnd('5a0') === null) · OpenViCloud/titan-cloud-console:portal/src/lib/sepay.ts (vietQrUrl:
+  // query string carries amount=<integer>) · OpenViCloud/titan-cloud-console:portal/src/i18n/vi.ts (walletBuy.title Nạp tiền, walletBuy.continue Tiếp tục)
   test('UI-18 in Vietnamese: 500.000 produces a QR for amount=500000; 5a0 disables Continue', async () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
@@ -399,9 +399,9 @@ test.describe.serial('portal-ui forms: buy credit and not-found page', () => {
     await page.getByRole('menuitemradio', { name: 'English' }).click()
   })
 
-  // OpenViCloud/titan:docs/features/cloud-console/design.md#portal-shell · portal/src/pages/NotFoundPage.tsx
-  // portal/src/pages/NotFoundPage.test.tsx:13-14,20-21 (role=heading 'Page not found'/'Không tìm thấy trang',
-  // link 'Back to overview'/'Về trang tổng quan' → '/') · portal/src/i18n/en.ts:14-18 · vi.ts:14-18
+  // OpenViCloud/titan:docs/features/cloud-console/design.md#portal-shell · OpenViCloud/titan-cloud-console:portal/src/pages/NotFoundPage.tsx
+  // OpenViCloud/titan-cloud-console:portal/src/pages/NotFoundPage.test.tsx ('says the page does not exist and links back to the overview', 'speaks Vietnamese': role=heading 'Page not found'/'Không tìm thấy trang',
+  // link 'Back to overview'/'Về trang tổng quan' → '/') · OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts, vi.ts (routeErrors.notFoundTitle, routeErrors.backHome)
   test('UI-26 an unknown path shows Page not found in English then Vietnamese, with a link back to Overview', async () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
