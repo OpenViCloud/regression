@@ -102,7 +102,7 @@ test.describe.serial('portal-ui shell', () => {
   })
 
   // portal/src/i18n/LanguageProvider.tsx · portal/src/i18n/lang.ts · portal/src/components/shell/AppShell.tsx
-  // (OpenViCloud/titan:docs/features/customer-portal/design.md#portal-language)
+  // (OpenViCloud/titan:docs/features/cloud-console/design.md#portal-language)
   test('UI-15 the language starts from the IP country, the account-menu choice wins and survives a reload', async () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })

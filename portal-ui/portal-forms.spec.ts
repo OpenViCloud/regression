@@ -74,7 +74,7 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
     startLog('portal-ui-forms')
     useBrowser(browser)
     // UI-19/24/25 compare against literal English strings; force English regardless of the runner's IP
-    // (OpenViCloud/titan:docs/features/customer-portal/design.md#portal-language), independent of what UI-15/18/26 leave behind.
+    // (OpenViCloud/titan:docs/features/cloud-console/design.md#portal-language), independent of what UI-15/18/26 leave behind.
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
     await page.evaluate(() => localStorage.setItem('ovc-lang', 'en'))
@@ -345,7 +345,7 @@ test.describe.serial('portal-ui forms: buy credit and not-found page', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/titan:docs/features/billing/topup/design.md#topup-portal · OpenViCloud/titan:docs/features/customer-portal/design.md#portal-language
+  // OpenViCloud/titan:docs/features/billing/topup/design.md#topup-portal · OpenViCloud/titan:docs/features/cloud-console/design.md#portal-language
   // portal/src/pages/WalletPage.tsx:347-357 (parseWholeVnd gates Continue) · portal/src/lib/money.ts:79
   // (parseWholeVnd('500.000') === 500000; parseWholeVnd('5a0') === null) · portal/src/lib/sepay.ts:6-16 (vietQrUrl
   // query string carries amount=<integer>) · portal/src/i18n/vi.ts:566,571 (Nạp tiền / Tiếp tục)
@@ -398,7 +398,7 @@ test.describe.serial('portal-ui forms: buy credit and not-found page', () => {
     await page.getByRole('menuitemradio', { name: 'English' }).click()
   })
 
-  // OpenViCloud/titan:docs/features/customer-portal/design.md#portal-shell · portal/src/pages/NotFoundPage.tsx
+  // OpenViCloud/titan:docs/features/cloud-console/design.md#portal-shell · portal/src/pages/NotFoundPage.tsx
   // portal/src/pages/NotFoundPage.test.tsx:13-14,20-21 (role=heading 'Page not found'/'Không tìm thấy trang',
   // link 'Back to overview'/'Về trang tổng quan' → '/') · portal/src/i18n/en.ts:14-18 · vi.ts:14-18
   test('UI-26 an unknown path shows Page not found in English then Vietnamese, with a link back to Overview', async () => {

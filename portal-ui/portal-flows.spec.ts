@@ -87,7 +87,7 @@ test.describe.serial('portal-ui flows: VM lifecycle', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/titan:docs/features/customer-portal/design.md#portal-gate-order · portal/src/contexts/TenantContext.tsx:46-56
+  // OpenViCloud/titan:docs/features/cloud-console/design.md#portal-gate-order · portal/src/contexts/TenantContext.tsx:46-56
   // (PendingApproval → consent gate → app) · portal/src/components/ConsentGate.tsx · portal/src/pages/DashboardPage.tsx
   test('UI-01 beta-user signs in, passes the gates, and the dashboard KPIs match the API', async () => {
     const page = await pageOf('tenant')
@@ -339,7 +339,7 @@ test.describe.serial('portal-ui flows: billing, wallet and account pages', () =>
     useBrowser(browser)
     const page = await pageOf('tenant')
     // UI-05/UI-06 compare against English number formatting: force English regardless of the runner's IP
-    // (OpenViCloud/titan:docs/features/customer-portal/design.md#portal-language), independent of whatever UI-15 left behind.
+    // (OpenViCloud/titan:docs/features/cloud-console/design.md#portal-language), independent of whatever UI-15 left behind.
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
     await page.evaluate(() => localStorage.setItem('ovc-lang', 'en'))
   })

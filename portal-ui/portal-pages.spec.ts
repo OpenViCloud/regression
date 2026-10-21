@@ -47,7 +47,7 @@ test.describe.serial('portal-ui pages', () => {
     log(`UI-12 ${vmName} ip=${vm.ipAddress}`)
   })
 
-  // OpenViCloud/titan:docs/features/customer-portal/design.md#global-search · portal/src/components/shell/GlobalSearch.tsx
+  // OpenViCloud/titan:docs/features/cloud-console/design.md#global-search · portal/src/components/shell/GlobalSearch.tsx
   test('UI-13 the top-bar search finds the VM by name and opens its page', async () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
@@ -59,7 +59,7 @@ test.describe.serial('portal-ui pages', () => {
     log('UI-13 search → VM page')
   })
 
-  // OpenViCloud/titan:docs/features/customer-portal/design.md#quota-card · portal/src/lib/quota.ts
+  // OpenViCloud/titan:docs/features/cloud-console/design.md#quota-card · portal/src/lib/quota.ts
   test('UI-14 the quota card shows the caps the API returns and counts the live VM', async () => {
     const tenant = await get('tenant', '/v1/tenant')
     // Same rule as the card: wanted, and Incus holds it or its create still waits.

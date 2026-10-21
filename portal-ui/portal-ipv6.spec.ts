@@ -75,7 +75,7 @@ test.describe.serial('portal-ui flows: IPv6 network, VM and load balancer', () =
     ])
   })
 
-  // OpenViCloud/titan:docs/features/network/design.md#ipv6-public · OpenViCloud/titan:docs/features/customer-portal/design.md#quota-card
+  // OpenViCloud/titan:docs/features/network/design.md#ipv6-public · OpenViCloud/titan:docs/features/cloud-console/design.md#quota-card
   // portal/src/components/NetworkCreateModal.tsx · portal/src/components/QuotaCard.tsx
   test('UI-16 a network with public IPv6 through the form, a VM on it, and the VM page showing its address', async () => {
     const { zoneId, smallTier, templateId } = await envOf()
