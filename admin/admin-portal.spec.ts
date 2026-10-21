@@ -40,9 +40,9 @@ test.describe.serial('admin-portal', () => {
     await closeSessions()
   })
 
-  // portal/src/admin/pages/AdminPromotionalCreditsPage.tsx:145-190 (PendingTopUps) — a customer-started top-up
+  // OpenViCloud/titan-admin-console:portal/src/admin/pages/AdminPromotionalCreditsPage.tsx (PendingTopUps) — a customer-started top-up
   // nobody confirmed; the admin portal's own confirm button, not the API confirm admin.spec.ts/billing.spec.ts use.
-  // Creates its own Pending top-up for beta-user (as UI-07 does, portal-ui/portal-flows.spec.ts:424) instead of
+  // Creates its own Pending top-up for beta-user (as UI-07 does, portal-ui/portal-flows.spec.ts, test UI-07) instead of
   // depending on UI-07 having run first, so this module's order does not matter.
   test('ADM-08 confirming a pending top-up in the admin portal credits the wallet and removes the row', async () => {
     // beta-user's own tenant id and wallet: the plan reads/writes beta-user's wallet here on purpose (ADM-08).
@@ -102,7 +102,7 @@ test.describe.serial('admin-portal', () => {
     topUpId = ''
   })
 
-  // portal/src/admin/pages/AdminTenantsPage.tsx:148-219 (EditQuotaDialog), :240-302 (EditDebtCeilingDialog)
+  // OpenViCloud/titan-admin-console:portal/src/admin/pages/AdminTenantsPage.tsx (EditQuotaDialog, EditDebtCeilingDialog)
   test('ADM-09 Edit quota shows the 9 caps of GET /v1/tenants; debt ceiling 9.000.000 PATCHes 9000000', async () => {
     const apiTenant = (await get('tenant', '/v1/tenant'))
     tenantId = apiTenant.id
@@ -141,7 +141,7 @@ test.describe.serial('admin-portal', () => {
       res.request().method() === 'PATCH' && res.url().includes(`/v1/tenants/${tenantId}/debt-ceiling`))
     await ceilingDialog.getByRole('button', { name: 'Save' }).click()
     const response = await patchResponsePromise
-    // lib/money.ts parseWholeVnd: '9.000.000' (dot-grouped) reads as nine million, not nine thousand.
+    // OpenViCloud/titan-admin-console:portal/src/lib/money.ts parseWholeVnd: '9.000.000' (dot-grouped) reads as nine million, not nine thousand.
     expect(response.request().postDataJSON().debtCeiling).toBe(9000000)
     expect(response.status()).toBe(204)
 
