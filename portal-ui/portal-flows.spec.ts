@@ -3,6 +3,7 @@ import { PORTAL, closeSessions, pageOf, useBrowser } from './auth'
 import { RESULTS, bodyOf, call, expectStatus, get, log, pollUntil, startLog } from './api'
 import { activityOf, countOf, envOf, nameOf, runNetwork, runs, waitVm, waitVolume } from './fixtures'
 
+// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-01..08 of plan.md: dashboard gate, VM create/snapshot/volume/stop-start-delete, billing,
 // wallet, buy-credit and the static account pages. Two independent describe.serial groups so a slow VM boot
 // (group A) cannot erase the billing/wallet/account coverage (group B), which needs no VM.

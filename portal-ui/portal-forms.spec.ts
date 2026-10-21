@@ -3,6 +3,7 @@ import { PORTAL, closeSessions, pageOf, useBrowser } from './auth'
 import { RESULTS, bodyOf, call, expectStatus, get, log, newKey, pollUntil, startLog } from './api'
 import { envOf, nameOf, runNetwork, runs, waitVm, waitVolume } from './fixtures'
 
+// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-18..21, UI-24..26 of plan.md: form validation (network, VM, firewall rule), the buy-credit
 // amount parser, the VM delete button's existence/transition invariant, deleting a volume that still has a
 // snapshot, and the 404 page. UI-22 is NOT COVERED (plan.md says why: needs a provider-refused delete

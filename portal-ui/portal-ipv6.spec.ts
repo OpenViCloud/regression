@@ -4,6 +4,7 @@ import { RESULTS, call, expectStatus, get, log, pollUntil, startLog } from './ap
 import { cleanUp } from './clean-up'
 import { createVm, deleteVmAndWait, envOf, existenceShape, nameOf, waitNetwork, networkUsable, runs, waitVm } from './fixtures'
 
+// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-16..17 of plan.md: a network with public IPv6 through the form, a VM on it, and a load
 // balancer through its form. beta-user holds MaxNetworks = 1 (the shared run network, with no IPv6), so this
 // module raises maxNetworks by one for its own second network and gives it back in afterAll — the exact pattern

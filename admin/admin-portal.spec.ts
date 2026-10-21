@@ -40,7 +40,7 @@ test.describe.serial('admin-portal', () => {
     await closeSessions()
   })
 
-  // portal/src/admin/pages/AdminPromotionalCreditsPage.tsx:145-190 (PendingTopUps) — a customer-started top-up
+  // OpenViCloud/titan-admin-console:portal/src/admin/pages/AdminPromotionalCreditsPage.tsx (PendingTopUps) — a customer-started top-up
   // nobody confirmed; the admin portal's own confirm button, not the API confirm admin.spec.ts/billing.spec.ts use.
   // Creates its own Pending top-up for beta-user (as UI-07 does, portal-ui/portal-flows.spec.ts:424) instead of
   // depending on UI-07 having run first, so this module's order does not matter.
@@ -102,7 +102,7 @@ test.describe.serial('admin-portal', () => {
     topUpId = ''
   })
 
-  // portal/src/admin/pages/AdminTenantsPage.tsx:148-219 (EditQuotaDialog), :240-302 (EditDebtCeilingDialog)
+  // OpenViCloud/titan-admin-console:portal/src/admin/pages/AdminTenantsPage.tsx (EditQuotaDialog, EditDebtCeilingDialog)
   test('ADM-09 Edit quota shows the 9 caps of GET /v1/tenants; debt ceiling 9.000.000 PATCHes 9000000', async () => {
     const apiTenant = (await get('tenant', '/v1/tenant'))
     tenantId = apiTenant.id

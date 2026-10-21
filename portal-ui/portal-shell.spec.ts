@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { ADMIN, PORTAL, closeSessions, pageOf, useBrowser } from './auth'
 import { RESULTS, log, startLog } from './api'
 
+// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-09..UI-11 and UI-15 of plan.md: theme, brand, language and the shell of both portals.
 // Colours are the token values of portal/src/index.css (light in @theme, dark under [data-theme=dark]).
 const LIGHT_BACKGROUND = 'rgb(243, 244, 247)'
@@ -66,7 +67,8 @@ test.describe.serial('portal-ui shell', () => {
     log('UI-09 system→dark, Light kept after reload, System back to OS')
   })
 
-  // portal/index.html, portal/admin.html <title> · portal/src/components/MainLayout.tsx, admin/layout/AdminLayout.tsx
+  // OpenViCloud/titan-cloud-console:portal/index.html <title>, portal/src/components/MainLayout.tsx
+  // OpenViCloud/titan-admin-console:portal/admin.html <title>, portal/src/admin/layout/AdminLayout.tsx
   test('UI-10 both portals carry the OpenViCloud brand', async () => {
     const tenant = await pageOf('tenant')
     await tenant.goto(PORTAL + '/', { waitUntil: 'networkidle' })

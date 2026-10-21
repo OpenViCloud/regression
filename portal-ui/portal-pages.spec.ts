@@ -3,6 +3,7 @@ import { PORTAL, closeSessions, pageOf, useBrowser } from './auth'
 import { RESULTS, get, log, startLog } from './api'
 import { createVm, deleteVmAndWait, envOf, nameOf, runNetwork, runs, waitVm } from './fixtures'
 
+// A bare portal/… path in this file is in OpenViCloud/titan-cloud-console.
 // Cases UI-12..UI-14 of plan.md: the VM page, the top-bar search and the quota card.
 // One small VM, created through the API, is the subject of all three; the page reads what the API reads.
 test.describe.serial('portal-ui pages', () => {

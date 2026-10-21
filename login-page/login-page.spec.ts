@@ -122,7 +122,7 @@ test.describe('login-page', () => {
     await narrow.context.close()
   })
 
-  // Portal tokens: portal/src/index.css --color-background, --color-primary (light and dark)
+  // Portal tokens: OpenViCloud/titan-cloud-console:portal/src/index.css --color-background, --color-primary (light and dark)
   test('LOGIN-02 page and button colours follow the portal tokens in light and dark', async ({ browser }) => {
     const expected: Record<Scheme, { page: string, primary: string }> = {
       light: { page: '#f3f4f7', primary: 'hsl(38 95% 52%)' },
@@ -292,7 +292,7 @@ test.describe('login-page', () => {
     await context.close()
   })
 
-  // portal/src/i18n/lang.ts signinArgs: ui_locales from the saved ovc-lang, none with nothing saved
+  // OpenViCloud/titan-cloud-console:portal/src/i18n/lang.ts signinArgs: ui_locales from the saved ovc-lang, none with nothing saved
   test('LOGIN-10 the portal sends its saved language to Keycloak, and nothing when none is saved', async ({ browser }) => {
     const saved = await open(browser, 'light', 1280)
     await saved.context.addInitScript(() => {
