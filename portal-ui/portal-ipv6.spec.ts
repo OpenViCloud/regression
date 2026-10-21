@@ -87,7 +87,7 @@ test.describe.serial('portal-ui flows: IPv6 network, VM and load balancer', () =
     // A wait on the API may sign in again (auth.ts headersOf) and close the old context: pageOf() again after
     // every wait.
     let page = await pageOf('tenant')
-    // Read the quota card BEFORE the new network exists, the same way QuotaCard.tsx itself counts (occupiesQuota
+    // Read the quota card BEFORE the new network exists, the same way OpenViCloud/titan-cloud-console:portal/src/components/QuotaCard.tsx itself counts (occupiesQuota
     // over the live network list) — not a hand-rolled filter that could drift from the component's own rule.
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
     const ipv6RowOf = () => page.getByRole('region', { name: 'Quota' }).locator('[data-quota-row]').filter({ hasText: 'Public IPv6' })
@@ -103,7 +103,7 @@ test.describe.serial('portal-ui flows: IPv6 network, VM and load balancer', () =
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByRole('heading', { name: 'Create Network' })).toBeVisible()
     await dialog.getByPlaceholder('e.g. production-net').fill(networkName)
-    // The Zone <select> has a <label> with no htmlFor (NetworkCreateModal.tsx:136), so it carries no accessible
+    // The Zone <select> has a <label> with no htmlFor (OpenViCloud/titan-cloud-console:portal/src/components/NetworkCreateModal.tsx, Zone field), so it carries no accessible
     // name — it is the dialog's only <select>, selected by position rather than by role name.
     await dialog.locator('select').selectOption(zoneId)
     await dialog.getByLabel('Enable public IPv6').check()
@@ -127,7 +127,7 @@ test.describe.serial('portal-ui flows: IPv6 network, VM and load balancer', () =
     await page.screenshot({ path: `${RESULTS}/UI-16-network-ipv6.png` })
 
     // Quota card: Public IPv6 used count increases by exactly one over what it read before this network existed
-    // (QuotaCard.tsx's own occupiesQuota count, read from the page both times — not a parallel hand count that
+    // (OpenViCloud/titan-cloud-console:portal/src/components/QuotaCard.tsx's own occupiesQuota count, read from the page both times — not a parallel hand count that
     // could silently diverge from the component's rule).
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
     const usedBefore = usedOf(ipv6Before)
@@ -173,7 +173,7 @@ test.describe.serial('portal-ui flows: IPv6 network, VM and load balancer', () =
 
     // The network select offers only networks with a /64 (OpenViCloud/titan:docs/features/load-balancer/design.md#lb-needs-public-ipv6):
     // the shared run network (no IPv6) must not be an option, the IPv6 one from UI-16 must be. Its accessible
-    // name is the field label "Network" (LoadBalancerFormModal.tsx:152) — "Select a network with public IPv6" is
+    // name is the field label "Network" (OpenViCloud/titan-cloud-console:portal/src/components/LoadBalancerFormModal.tsx, Network field) — "Select a network with public IPv6" is
     // only the placeholder <option> text, not an aria-label.
     const networkSelect = dialog.getByRole('combobox', { name: 'Network' })
     // allTextContents() does not auto-wait, so first wait for the option this test needs to actually appear

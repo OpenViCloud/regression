@@ -113,7 +113,7 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
   })
 
   // OpenViCloud/titan:docs/features/network/design.md#network-portal · OpenViCloud/titan-cloud-console:portal/src/components/NetworkCreateModal.tsx
-  // (zoneRequired, shown under the field) · OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts, vi.ts (networkCreate.zoneRequired)
+  // (zoneRequired, shown under the field) · OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts, OpenViCloud/titan-cloud-console:portal/src/i18n/vi.ts (networkCreate.zoneRequired)
   test('UI-19 Create Network with no zone shows a field error and sends no request', async () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/networks', { waitUntil: 'networkidle' })
@@ -255,7 +255,7 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
     log(`UI-21 volume ${volumeName} survives delete attempt while it has a snapshot`)
   })
 
-  // OpenViCloud/titan:docs/features/vm/design.md#vm-portal · OpenViCloud/titan-cloud-console:portal/src/lib/vmState.ts (canDeleteVm: false only while
+  // OpenViCloud/titan:docs/features/vm/design.md#vm-portal · OpenViCloud/titan-cloud-console:portal/src/lib/vmState.ts (canDeleteVm: false while Deleting, and while
   // transition === 'Creating' && currentExistence === 'NotCreated'; true once Exists, even mid-Creating)
   // OpenViCloud/titan-cloud-console:portal/src/components/vm/VmActions.tsx (VmActions: Delete disabled by canDeleteVm)
   // OpenViCloud/titan-cloud-console:portal/src/hooks/pollUntilSettled.ts (POLL_MS = 5000,
@@ -307,7 +307,7 @@ test.describe.serial('portal-ui forms: network, firewall, volume and VM form val
         expect(disabledBefore, 'Delete must be disabled while Creating and NotCreated').toBe(true)
         sawNotCreated = true
       } else if (vm.transition === 'Creating' && vm.currentExistence === 'Exists') {
-        // The list page polls at POLL_MS while a row waits (pollUntilSettled.ts) — give the UI one full tick
+        // The list page polls at POLL_MS while a row waits (OpenViCloud/titan-cloud-console:portal/src/hooks/pollUntilSettled.ts) — give the UI one full tick
         // past that to catch up before asserting it reflects the already-Exists API state.
         await expect(deleteButton()).toBeEnabled({ timeout: POLL_MS + 5_000 })
         sawExistsWhileCreating = true
@@ -365,7 +365,7 @@ test.describe.serial('portal-ui forms: buy credit and not-found page', () => {
 
     // This DOES create a Pending top-up via POST /v1/tenant/topups (the same acceptable residue UI-07 leaves —
     // CLAUDE.md: beta-user's wallet is read, never settled, outside this one on-purpose exception).
-    // ADM-08 confirms its OWN topup by paymentRef (admin/admin-portal.spec.ts:47-58), not "whatever
+    // ADM-08 confirms its OWN topup by paymentRef (admin/admin-portal.spec.ts, test ADM-08), not "whatever
     // is Pending", so this extra one is never picked up by it.
     const qrPromise = page.waitForRequest((req) => req.url().startsWith('https://qr.sepay.vn/img'), { timeout: 30_000 })
     await dialog.getByRole('button', { name: 'Tiếp tục' }).click()
@@ -401,7 +401,7 @@ test.describe.serial('portal-ui forms: buy credit and not-found page', () => {
 
   // OpenViCloud/titan:docs/features/cloud-console/design.md#portal-shell · OpenViCloud/titan-cloud-console:portal/src/pages/NotFoundPage.tsx
   // OpenViCloud/titan-cloud-console:portal/src/pages/NotFoundPage.test.tsx ('says the page does not exist and links back to the overview', 'speaks Vietnamese': role=heading 'Page not found'/'Không tìm thấy trang',
-  // link 'Back to overview'/'Về trang tổng quan' → '/') · OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts, vi.ts (routeErrors.notFoundTitle, routeErrors.backHome)
+  // link 'Back to overview'/'Về trang tổng quan' → '/') · OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts, OpenViCloud/titan-cloud-console:portal/src/i18n/vi.ts (routeErrors.notFoundTitle, routeErrors.backHome)
   test('UI-26 an unknown path shows Page not found in English then Vietnamese, with a link back to Overview', async () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })

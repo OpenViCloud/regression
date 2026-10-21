@@ -94,7 +94,7 @@ test.describe.serial('portal-ui flows: VM lifecycle', () => {
     const page = await pageOf('tenant')
     await page.goto(PORTAL + '/', { waitUntil: 'networkidle' })
 
-    // The consent gate IS one of the gates this case covers (ConsentGate.tsx): go through it in the UI rather
+    // The consent gate IS one of the gates this case covers (OpenViCloud/titan-cloud-console:portal/src/components/ConsentGate.tsx): go through it in the UI rather
     // than clearing it over the API, so a caller still owing consent is actually exercised here.
     const consentGate = page.getByTestId('consent-gate')
     if (await consentGate.isVisible().catch(() => false)) {
@@ -161,7 +161,7 @@ test.describe.serial('portal-ui flows: VM lifecycle', () => {
     const rowOf = () => page.getByRole('listitem').filter({ hasText: vmName })
     await expect(rowOf()).toBeVisible()
     // The badge text "Creating" (exact) is distinct from the disabled "Creating…" action button
-    // (VmActions.tsx renders both while a request is pending) — exact avoids a strict-mode collision.
+    // (OpenViCloud/titan-cloud-console:portal/src/components/vm/VmActions.tsx renders both while a request is pending) — exact avoids a strict-mode collision.
     await expect(rowOf().getByText('Creating', { exact: true })).toBeVisible()
     await page.screenshot({ path: `${RESULTS}/UI-02-vm-creating.png` })
 
@@ -220,7 +220,7 @@ test.describe.serial('portal-ui flows: VM lifecycle', () => {
     await page.getByRole('button', { name: 'Create Volume' }).click()
     const volDialog = page.getByRole('dialog')
     await volDialog.getByPlaceholder('e.g. data-vol-01').fill(volumeName)
-    // Zone and offering selects carry no accessible name (VolumeCreateModal.tsx:77,88 — unlabeled <select>,
+    // Zone and offering selects carry no accessible name (OpenViCloud/titan-cloud-console:portal/src/components/VolumeCreateModal.tsx — unlabeled <select>,
     // unlike VmCreateModal's): scope to the dialog and pick by position — zone first, offering second.
     const selects = volDialog.locator('select')
     await selects.nth(0).selectOption(zoneId)
@@ -243,7 +243,7 @@ test.describe.serial('portal-ui flows: VM lifecycle', () => {
 
     await volRowOf().getByRole('button', { name: 'Attach' }).click()
     const attachDialog = page.getByRole('dialog')
-    // AttachVolumeDialog.tsx renders <option value={vm.id}>{vm.name} ({state})</option>: select by value (the
+    // AttachVolumeDialog (OpenViCloud/titan-cloud-console:portal/src/pages/VolumeListPage.tsx) renders <option value={vm.id}>{vm.name} ({state})</option>: select by value (the
     // VM id) rather than by label, since the label's state suffix is not controlled by this test.
     await attachDialog.getByRole('combobox', { name: 'Select VM' }).selectOption(vmId)
     await attachDialog.getByRole('button', { name: 'Attach', exact: true }).click()
@@ -286,7 +286,7 @@ test.describe.serial('portal-ui flows: VM lifecycle', () => {
     await expect(row.getByRole('button', { name: 'Start' })).toHaveCount(0)
     await row.getByRole('button', { name: 'Stop' }).click()
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Overview' }).click()
-    // activityActions.vmStopRequested in en.ts — the label a stop request's feed row carries.
+    // activityActions.vmStopRequested in OpenViCloud/titan-cloud-console:portal/src/i18n/en.ts — the label a stop request's feed row carries.
     await expect(feedOf().filter({ hasText: /stop/i }).first()).toBeVisible()
     await page.screenshot({ path: `${RESULTS}/UI-03-stopped-feed.png` })
     await waitVm('UI-03 vm stopped', vmId, (v) => v.currentState === 'Stopped' && v.transition === null)
@@ -376,7 +376,7 @@ test.describe.serial('portal-ui flows: billing, wallet and account pages', () =>
     if (invoices.length === 0) {
       await expect(page.getByText('No invoices yet')).toBeVisible()
     } else {
-      // Each invoice's <tr> carries an explicit role="link" (InvoicesPage.tsx:32), not the table's implicit
+      // Each invoice's <tr> carries an explicit role="link" (OpenViCloud/titan-cloud-console:portal/src/pages/InvoicesPage.tsx), not the table's implicit
       // "row" — an explicit role attribute replaces the implicit one from the tag.
       const first = invoices[0]
       await expect(page.getByRole('link').filter({ hasText: moneyEn(first.total) })).toBeVisible()
@@ -452,7 +452,8 @@ test.describe.serial('portal-ui flows: billing, wallet and account pages', () =>
     expect(pending?.status).toBe('Pending')
   })
 
-  // OpenViCloud/titan:docs/features/legal/design.md#legal-ui · OpenViCloud/titan-cloud-console:portal/src/pages/MembersPage.tsx, ProfilePage.tsx, LegalTermsPage.tsx
+  // OpenViCloud/titan:docs/features/legal/design.md#legal-ui · OpenViCloud/titan-cloud-console:portal/src/pages/MembersPage.tsx, OpenViCloud/titan-cloud-console:portal/src/pages/ProfilePage.tsx,
+  // OpenViCloud/titan-cloud-console:portal/src/pages/LegalTermsPage.tsx
   test('UI-08 Members, Profile and the terms page show real content', async () => {
     const members = await get('tenant', '/v1/tenant/members') as any[]
     const tenant = await get('tenant', '/v1/tenant')
@@ -472,13 +473,13 @@ test.describe.serial('portal-ui flows: billing, wallet and account pages', () =>
     const main = page.locator('main')
     await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible()
     // Scoped to <main>: the account menu in the top bar also shows the tenant name as accountLabel
-    // (AppShell.tsx), which would otherwise collide with an exact match on the page body.
+    // (OpenViCloud/titan-cloud-console:portal/src/components/shell/AppShell.tsx), which would otherwise collide with an exact match on the page body.
     await expect(main.getByText(tenant.name, { exact: true })).toBeVisible()
     await expect(main.getByText(tenant.status, { exact: true })).toBeVisible()
     await expect(main.getByText(`${tenant.maxVms} machines`)).toBeVisible()
     await page.screenshot({ path: `${RESULTS}/UI-08-profile.png` })
 
-    // The public terms page (no auth gate — App.tsx routes /legal before TenantProvider).
+    // The public terms page (no auth gate — OpenViCloud/titan-cloud-console:portal/src/App.tsx routes /legal before TenantProvider).
     const document = await get('anonymous', '/v1/legal/document?lang=en')
     const legalPage = await pageOf('tenant')
     await legalPage.goto(PORTAL + '/legal/terms', { waitUntil: 'networkidle' })
