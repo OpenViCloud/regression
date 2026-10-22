@@ -31,15 +31,15 @@ test.describe.serial('network', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IDEMPOTENCY_KEY_REQUIRED)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IDEMPOTENCY_KEY_REQUIRED)
   test('NET-01 create without Idempotency-Key is 400 IDEMPOTENCY_KEY_REQUIRED and makes nothing', async () => {
     const { zoneId } = await envOf()
     expectError(await call('tenant', 'POST', '/v1/tenant/networks', { name, zoneId, cidr: RUN_CIDR }), 400, 'IDEMPOTENCY_KEY_REQUIRED')
     expect((await listNetworks()).some((n) => n.name === name)).toBe(false)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs HandleAsync (name, CIDR and zone checks);
-  // the reconciler reports Created (OpenViCloud/titan:docs/features/network/design.md#network-lifecycle)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs HandleAsync (name, CIDR and zone checks);
+  // the reconciler reports Created (OpenViCloud/titan-ops:docs/features/network/design.md#network-lifecycle)
   test('NET-02 create with a key and a cidr is 202 {networkId}, then Created and Exists', async () => {
     const { zoneId } = await envOf()
     const reply = await call('tenant', 'POST', '/v1/tenant/networks', { name, zoneId, cidr: RUN_CIDR }, key)
@@ -48,14 +48,14 @@ test.describe.serial('network', () => {
     expect(Object.keys(bodyOf(reply))).toEqual(['networkId'])
     const network = await waitNetwork('NET-02', networkId, networkUsable)
     expect(network.cidr).toBe(RUN_CIDR)
-    // ACT-02: one request row, one outcome row (OpenViCloud/titan:docs/features/activity/design.md#request-and-outcome-names)
+    // ACT-02: one request row, one outcome row (OpenViCloud/titan-ops:docs/features/activity/design.md#request-and-outcome-names)
     const actions = await activityOf(name)
     log(`ACT-02 network ${name}: ${actions.join(', ')}`)
     expect(countOf(actions, 'network.create_requested')).toBe(1)
     expect(countOf(actions, 'network.created')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IdempotencyDecision.Replay) — the same key and body replay the stored answer
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IdempotencyDecision.Replay) — the same key and body replay the stored answer
   test('NET-03 the same key and body answers the same networkId and makes no second network', async () => {
     const { zoneId } = await envOf()
     const reply = await call('tenant', 'POST', '/v1/tenant/networks', { name, zoneId, cidr: RUN_CIDR }, key)
@@ -64,14 +64,14 @@ test.describe.serial('network', () => {
     expect((await listNetworks()).filter((n) => n.name === name).length).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IDEMPOTENCY_KEY_REUSED)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IDEMPOTENCY_KEY_REUSED)
   test('NET-04 the same key with another body is 422 IDEMPOTENCY_KEY_REUSED', async () => {
     const { zoneId } = await envOf()
     expectError(await call('tenant', 'POST', '/v1/tenant/networks', { name: `${name}-other`, zoneId, cidr: '10.78.0.0/24' }, key),
       422, 'IDEMPOTENCY_KEY_REUSED')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs HandleAsync (NetworkAggregate.Create) — quota refuses in the factory, after the name and CIDR checks
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs HandleAsync (NetworkAggregate.Create) — quota refuses in the factory, after the name and CIDR checks
   test('NET-05 a second network (new name, free CIDR) past maxNetworks is 422 NETWORK_QUOTA_EXCEEDED', async () => {
     const { zoneId } = await envOf()
     const tenant = await get('tenant', '/v1/tenant')
@@ -82,7 +82,7 @@ test.describe.serial('network', () => {
       422, 'NETWORK_QUOTA_EXCEEDED')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Network/RenameNetworkEndpoint.cs (Configure: Patch("v1/tenant/networks/{networkId:guid}"), 204;
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Network/RenameNetworkEndpoint.cs (Configure: Patch("v1/tenant/networks/{networkId:guid}"), 204;
   // HandleAsync: SendNoContentAsync)
   test('NET-06 rename is 204 with no body and GET shows the new name', async () => {
     const newName = `${name}-renamed`
@@ -92,14 +92,14 @@ test.describe.serial('network', () => {
     expect((await get('tenant', `/v1/tenant/networks/${networkId}`)).name).toBe(newName)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs HandleAsync (HasCidrOverlapAsync) — the CIDR check runs before quota
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs HandleAsync (HasCidrOverlapAsync) — the CIDR check runs before quota
   test('NET-07 a second network whose CIDR overlaps the run network is 422 NETWORK_CIDR_OVERLAP', async () => {
     const { zoneId } = await envOf()
     expectError(await call('tenant', 'POST', '/v1/tenant/networks', { name: `rg-net3-${RUN}`, zoneId, cidr: '10.76.0.128/25' }, newKey()),
       422, 'NETWORK_CIDR_OVERLAP')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs FreePublicIpv6Async — a
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/CreateNetworkCommandHandler.cs FreePublicIpv6Async — a
   // zone whose cluster names no IPv6 block refuses; a zone with one is skipped here
   test('NET-10 a network asking for public IPv6 in a zone without an IPv6 block is 422 IPV6_NOT_AVAILABLE', async () => {
     const { zoneId } = await envOf()
@@ -111,7 +111,7 @@ test.describe.serial('network', () => {
       422, 'IPV6_NOT_AVAILABLE')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Services/Networking/Network/NetworkOwnership.cs RequireNetworkAsync — admin-test reads beta-user's
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Networking/Network/NetworkOwnership.cs RequireNetworkAsync — admin-test reads beta-user's
   // run network, so a broken check could only touch a test network
   test("NET-09 another tenant's network is 404 NETWORK_NOT_FOUND", async () => {
     expectError(await call('admin', 'GET', `/v1/tenant/networks/${networkId}`), 404, 'NETWORK_NOT_FOUND')

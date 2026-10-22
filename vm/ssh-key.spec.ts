@@ -45,8 +45,8 @@ test.describe.serial('ssh-key', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/SshKey/AddSshKeyEndpoint.cs (HandleAsync: SendAsync(result, 201)) ·
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/SshKey/ListSshKeysEndpoint.cs (Configure: Get("v1/tenant/ssh-keys"))
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/AddSshKeyEndpoint.cs (HandleAsync: SendAsync(result, 201)) ·
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/ListSshKeysEndpoint.cs (Configure: Get("v1/tenant/ssh-keys"))
   test('SSH-01 add a key: 201 id only, the list shows the ssh-keygen fingerprint', async () => {
     const before = Date.now()
     const reply = await call('tenant', 'POST', '/v1/tenant/ssh-keys', { name, publicKey: ED25519 }, newKey())
@@ -64,7 +64,7 @@ test.describe.serial('ssh-key', () => {
     log(`SSH-01 key ${keyId} ${listed!.fingerprint}`)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/SshKey/AddSshKeyCommandHandler.cs HandleAsync (SSH_KEY_EXISTS, SSH_KEY_NAME_TAKEN)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/SshKey/AddSshKeyCommandHandler.cs HandleAsync (SSH_KEY_EXISTS, SSH_KEY_NAME_TAKEN)
   test('SSH-02 the same key under another comment is 409 SSH_KEY_EXISTS; the same name is 409 SSH_KEY_NAME_TAKEN', async () => {
     const otherComment = ED25519.replace('alice@laptop', 'someone-else')
     expectError(await call('tenant', 'POST', '/v1/tenant/ssh-keys', { name: `${name}-b`, publicKey: otherComment }, newKey()),
@@ -74,7 +74,7 @@ test.describe.serial('ssh-key', () => {
     expect((await listKeys('tenant')).filter((k) => k.name.startsWith(name)).length).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/SshKey/AddSshKeyEndpoint.cs AddSshKeyValidator (PublicKey and Name rules)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/AddSshKeyEndpoint.cs AddSshKeyValidator (PublicKey and Name rules)
   test('SSH-03 a malformed key, an RSA key under 2048 bits and a 65-character name are 400 VALIDATION_ERROR', async () => {
     const count = (await listKeys('tenant')).length
     expectError(await call('tenant', 'POST', '/v1/tenant/ssh-keys', { name: `${name}-c`, publicKey: 'ssh-ed25519 nope' }, newKey()),
@@ -86,7 +86,7 @@ test.describe.serial('ssh-key', () => {
     expect((await listKeys('tenant')).length).toBe(count)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs VendorDataForKeysAsync (SSH_KEY_NOT_FOUND): checked before the VM row is added, so nothing is made.
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs VendorDataForKeysAsync (SSH_KEY_NOT_FOUND): checked before the VM row is added, so nothing is made.
   test('SSH-04 creating a VM with an unknown key id is 404 SSH_KEY_NOT_FOUND and makes no VM', async () => {
     const networkId = (await runNetwork()).id
     const { zoneId, templateId, smallTier } = await envOf()
@@ -98,8 +98,8 @@ test.describe.serial('ssh-key', () => {
     expect(vms.filter((v) => v.name === vmName)).toEqual([])
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/SshKey/DeleteSshKeyCommandHandler.cs HandleAsync (another tenant's key is not found) ·
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/SshKey/DeleteSshKeyEndpoint.cs (Configure: Delete("v1/tenant/ssh-keys/{sshKeyId:guid}"), 204)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/SshKey/DeleteSshKeyCommandHandler.cs HandleAsync (another tenant's key is not found) ·
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/DeleteSshKeyEndpoint.cs (Configure: Delete("v1/tenant/ssh-keys/{sshKeyId:guid}"), 204)
   test('SSH-05 another tenant cannot see or delete the key; the owner deletes it once, then 404', async () => {
     expect((await listKeys('admin')).map((k) => k.id)).not.toContain(keyId)
     expectError(await call('admin', 'DELETE', `/v1/tenant/ssh-keys/${keyId}`), 404, 'SSH_KEY_NOT_FOUND')

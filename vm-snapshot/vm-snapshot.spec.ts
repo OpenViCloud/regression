@@ -6,7 +6,7 @@ import { RUN, activityOf, countOf, createVm, deleteVmAndWait, envOf, getVm, runN
 
 // Cases VMS-01..08 of plan.md, plus ACT-02/ACT-03 for VM snapshots.
 
-// OpenViCloud/control-plane:Titan.Domain/Aggregates/Platform/Tenant/TenantQuota.cs DefaultMaxVmSnapshotsPerVm — no API reads the cap
+// OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Platform/Tenant/TenantQuota.cs DefaultMaxVmSnapshotsPerVm — no API reads the cap
 const MAX_SNAPSHOTS_PER_VM = 3
 
 function snapshotShape(s: any): string {
@@ -79,7 +79,7 @@ test.describe.serial('vm-snapshot', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/VmSnapshots/CreateSnapshotEndpoint.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/VmSnapshots/CreateSnapshotEndpoint.cs HandleAsync
   test('VMS-01 a snapshot of a running VM is 202 {snapshotId}, then Exists', async () => {
     const id = await createSnapshot('s1')
     await waitSnapshot('VMS-01', id, exists)
@@ -90,7 +90,7 @@ test.describe.serial('vm-snapshot', () => {
     expect(countOf(actions, 'vm_snapshot.created')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs EnsureSnapshottable — Running, Ready, Stopped or Frozen
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs EnsureSnapshottable — Running, Ready, Stopped or Frozen
   test('VMS-02 a snapshot of a stopped VM Exists too', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmId}/stop`), 202)
     await waitVm('VMS-02 stop', vmId, (v) => v.currentState === 'Stopped' && v.transition === null)
@@ -98,8 +98,8 @@ test.describe.serial('vm-snapshot', () => {
     await waitSnapshot('VMS-02', id, exists)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateVmSnapshot; a delete asked stops counting
-  // (OpenViCloud/titan:docs/features/vm/design.md#vm-snapshot-counting)
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateVmSnapshot; a delete asked stops counting
+  // (OpenViCloud/titan-ops:docs/features/vm/design.md#vm-snapshot-counting)
   test('VMS-03 the snapshot past the cap is 422 VM_SNAPSHOT_QUOTA_EXCEEDED; a delete frees the slot', async () => {
     const third = await createSnapshot('s3')
     await waitSnapshot('VMS-03 third', third, exists)
@@ -111,8 +111,8 @@ test.describe.serial('vm-snapshot', () => {
     await waitSnapshot('VMS-03 third deleted', third, (s) => s.currentExistence === 'Deleted')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/VmSnapshots/RevertSnapshotEndpoint.cs HandleAsync ·
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/VmSnapshot/UpdateVmSnapshotStatusCommandHandler.cs HandleAsync (snapshot.MarkReverted())
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/VmSnapshots/RevertSnapshotEndpoint.cs HandleAsync ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/VmSnapshot/UpdateVmSnapshotStatusCommandHandler.cs HandleAsync (snapshot.MarkReverted())
   test('VMS-04 revert is 202, Reverting then settled, outcome reverted, desired unchanged', async () => {
     const before = await getVm(vmId)
     const reply = await call('tenant', 'POST', `${path()}/${snapshots.s1}/revert`)
@@ -129,7 +129,7 @@ test.describe.serial('vm-snapshot', () => {
     expect(countOf(actions, 'vm_snapshot.reverted')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (AnyInProgressByVmIdAsync ⇒ VM_SNAPSHOT_IN_PROGRESS)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (AnyInProgressByVmIdAsync ⇒ VM_SNAPSHOT_IN_PROGRESS)
   test('VMS-05 deleting the VM while a snapshot is being made is 422 VM_SNAPSHOT_IN_PROGRESS', async () => {
     expectStatus(await call('tenant', 'DELETE', `${path()}/${snapshots.s4}`), 202)
     await waitSnapshot('VMS-05 free a slot', snapshots.s4, (s) => s.currentExistence === 'Deleted')
@@ -139,8 +139,8 @@ test.describe.serial('vm-snapshot', () => {
     expect((await getVm(vmId)).desiredExistence).toBe('Exists')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/VmSnapshot/DeleteVmSnapshotCommandHandler.cs HandleAsync (alreadyRequestedOrDone) ·
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/VmSnapshots/DeleteSnapshotEndpoint.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/VmSnapshot/DeleteVmSnapshotCommandHandler.cs HandleAsync (alreadyRequestedOrDone) ·
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/VmSnapshots/DeleteSnapshotEndpoint.cs HandleAsync
   test('VMS-06 delete a snapshot is 202, then Deleted; a repeat is 202 and records nothing', async () => {
     expectStatus(await call('tenant', 'DELETE', `${path()}/${snapshots.s2}`), 202)
     await waitSnapshot('VMS-06', snapshots.s2, (s) => s.currentExistence === 'Deleted')
@@ -150,13 +150,13 @@ test.describe.serial('vm-snapshot', () => {
     expect(countOf(actions, 'vm_snapshot.deleted')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Services/Compute/ComputeOwnership.cs RequireVmSnapshotAsync
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Compute/ComputeOwnership.cs RequireVmSnapshotAsync
   test('VMS-08 a snapshot id the VM does not have is 404 VM_SNAPSHOT_NOT_FOUND', async () => {
     expectError(await call('tenant', 'DELETE', `${path()}/${randomUUID()}`), 404, 'VM_SNAPSHOT_NOT_FOUND')
     expectError(await call('tenant', 'POST', `${path()}/${randomUUID()}/revert`), 404, 'VM_SNAPSHOT_NOT_FOUND')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (MarkAllDeletedByVmIdAsync) — the VM's Deleted report marks its snapshots Deleted
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (MarkAllDeletedByVmIdAsync) — the VM's Deleted report marks its snapshots Deleted
   test('VMS-07 deleting the VM takes its remaining snapshots to Deleted', async () => {
     await deleteVmAndWait(vmId)
     for (const label of ['s1', 's5']) {

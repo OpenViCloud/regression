@@ -48,7 +48,7 @@ test.describe.serial('admin-portal', () => {
     // beta-user's own tenant id and wallet: the plan reads/writes beta-user's wallet here on purpose (ADM-08).
     const tenant = await get('tenant', '/v1/tenant')
     const before = (await get('tenant', '/v1/tenant/wallet')).balance as number
-    // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/TopUp/CreateTopUpEndpoint.cs RequestTopUpValidator — GreaterThan(0): the smallest amount the validator accepts.
+    // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/TopUp/CreateTopUpEndpoint.cs RequestTopUpValidator — GreaterThan(0): the smallest amount the validator accepts.
     amount = 1
     const createReply = await call('tenant', 'POST', '/v1/tenant/topups', { amount }, newKey())
     expectStatus(createReply, 201)

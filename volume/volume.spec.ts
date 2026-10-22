@@ -5,7 +5,7 @@ import { RUN, activityOf, countOf, createVm, deleteVmAndWait, envOf, readVolume,
 
 // Cases VOL-01..10 of plan.md, plus ACT-02 for volumes and volume snapshots (VOL-11 reads the Incus host).
 
-// OpenViCloud/control-plane:Titan.Domain/Aggregates/Platform/Tenant/TenantQuota.cs DefaultMaxVolumes, DefaultMaxVolumeSnapshotsPerVolume — no API reads the caps
+// OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Platform/Tenant/TenantQuota.cs DefaultMaxVolumes, DefaultMaxVolumeSnapshotsPerVolume — no API reads the caps
 const MAX_VOLUMES = 10
 const MAX_SNAPSHOTS_PER_VOLUME = 3
 
@@ -87,7 +87,7 @@ test.describe.serial('volume', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Volume/CreateVolumeEndpoint.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Volume/CreateVolumeEndpoint.cs HandleAsync
   test('VOL-01 a volume is 202 {volumeId}, then Exists and not attached', async () => {
     volumeA = await createVolume('vola')
     const volume = await waitVolume('VOL-01', volumeA, settled)
@@ -98,7 +98,7 @@ test.describe.serial('volume', () => {
     expect(countOf(actions, 'volume.created')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Volume/CreateVolumeCommandHandler.cs HandleAsync (VOLUME_OFFERING_NOT_FOUND)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Volume/CreateVolumeCommandHandler.cs HandleAsync (VOLUME_OFFERING_NOT_FOUND)
   test('VOL-02 an unknown offering is 404 VOLUME_OFFERING_NOT_FOUND and makes no row', async () => {
     const { zoneId } = await envOf()
     const name = `rg-volx-${RUN}`
@@ -108,8 +108,8 @@ test.describe.serial('volume', () => {
     expect(rows.some((v) => v.name === name)).toBe(false)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Volume/AttachVolumeEndpoint.cs HandleAsync — 202, no body;
-  // attachment is read from used_by (OpenViCloud/titan:docs/features/volume/design.md#attachment-from-used-by)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Volume/AttachVolumeEndpoint.cs HandleAsync — 202, no body;
+  // attachment is read from used_by (OpenViCloud/titan-ops:docs/features/volume/design.md#attachment-from-used-by)
   test('VOL-03 attach to a running VM is 202 with no body, then attached to it', async () => {
     const reply = await call('tenant', 'POST', `/v1/tenant/volumes/${volumeA}/attach`, { vmId })
     expectStatus(reply, 202)
@@ -121,8 +121,8 @@ test.describe.serial('volume', () => {
     expect(countOf(actions, 'volume.attached')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Volume/DetachVolumeEndpoint.cs HandleAsync ·
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Volume/UpdateVolumeStatusCommandHandler.cs ApplyObservationAsync (ResolveAttachmentAsync)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Volume/DetachVolumeEndpoint.cs HandleAsync ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Volume/UpdateVolumeStatusCommandHandler.cs ApplyObservationAsync (ResolveAttachmentAsync)
   test('VOL-04 detach is 202, then not attached', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/volumes/${volumeA}/detach`), 202)
     await waitVolume('VOL-04', volumeA, (v) => v.currentAttachedVmId === null && v.transition === null)
@@ -131,7 +131,7 @@ test.describe.serial('volume', () => {
     expect(countOf(actions, 'volume.detached')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateVolumeSnapshot
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateVolumeSnapshot
   test('VOL-05 snapshots Exist; the one past the cap is 422 VOLUME_SNAPSHOT_QUOTA_EXCEEDED', async () => {
     for (let i = 1; i <= MAX_SNAPSHOTS_PER_VOLUME; i++) {
       const reply = await call('tenant', 'POST', `/v1/tenant/volumes/${volumeA}/snapshots`, { name: `rg-vsnap${i}-${RUN}` }, newKey())
@@ -148,8 +148,8 @@ test.describe.serial('volume', () => {
     expect(countOf(actions, 'volume_snapshot.created')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/VolumeSnapshots/RestoreVolumeSnapshotEndpoint.cs HandleAsync ·
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/VolumeSnapshot/RestoreVolumeSnapshotCommandHandler.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/VolumeSnapshots/RestoreVolumeSnapshotEndpoint.cs HandleAsync ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/VolumeSnapshot/RestoreVolumeSnapshotCommandHandler.cs HandleAsync
   // (activity.Stage("volume_snapshot.restore_requested") on the new volume)
   test('VOL-06 restore is 202 {newVolumeId}: a new volume Exists, the source is unchanged', async () => {
     const name = `rg-volr-${RUN}`
@@ -166,13 +166,13 @@ test.describe.serial('volume', () => {
     expect(countOf(actions, 'volume.created')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Volume/Volume.cs RequestDelete (VOLUME_HAS_SNAPSHOTS)
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Volume/Volume.cs RequestDelete (VOLUME_HAS_SNAPSHOTS)
   test('VOL-07 deleting a volume that still has snapshots is 422 VOLUME_HAS_SNAPSHOTS', async () => {
     expectError(await call('tenant', 'DELETE', `/v1/tenant/volumes/${volumeA}`), 422, 'VOLUME_HAS_SNAPSHOTS')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/VolumeSnapshots/DeleteVolumeSnapshotEndpoint.cs HandleAsync,
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Volume/DeleteVolumeEndpoint.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/VolumeSnapshots/DeleteVolumeSnapshotEndpoint.cs HandleAsync,
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Volume/DeleteVolumeEndpoint.cs HandleAsync
   test('VOL-08 snapshots deleted first, then the volume: both reach Deleted', async () => {
     for (const id of snapshotsOfA) {
       expectStatus(await call('tenant', 'DELETE', `/v1/tenant/volumes/${volumeA}/snapshots/${id}`), 202)
@@ -190,10 +190,10 @@ test.describe.serial('volume', () => {
     expect(countOf(snapshotActions, 'volume_snapshot.deleted')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VolumeRepository.cs CountActiveByTenantAsync ·
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateVolume
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VolumeRepository.cs CountActiveByTenantAsync ·
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateVolume
   test('VOL-10 the volume past MaxVolumes is 422 VOLUME_QUOTA_EXCEEDED', async () => {
-    // The server's count (OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VolumeRepository.cs CountActiveByTenantAsync): desired Exists and (Exists, or its create waits).
+    // The server's count (OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VolumeRepository.cs CountActiveByTenantAsync): desired Exists and (Exists, or its create waits).
     const live = (await get('tenant', '/v1/tenant/volumes') as any[])
       .filter((v) => v.desiredExistence === 'Exists' && (v.currentExistence === 'Exists' || v.transition === 'Creating')).length
     log(`VOL-10 live volumes before: ${live}`)
@@ -206,8 +206,8 @@ test.describe.serial('volume', () => {
       422, 'VOLUME_QUOTA_EXCEEDED')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (ListAttachedToVmAsync: the volumes go as detaches),
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (volume.MarkDetachedByVmDelete)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (ListAttachedToVmAsync: the volumes go as detaches),
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (volume.MarkDetachedByVmDelete)
   test('VOL-09 deleting a VM releases the volume attached to it, which stays', async () => {
     const id = made[made.length - 1]
     await waitVolume('VOL-09 ready', id, settled)

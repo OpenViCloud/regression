@@ -40,8 +40,8 @@ test.describe.serial('network-lifecycle', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Network/DeleteNetworkEndpoint.cs HandleAsync ·
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/DeleteNetworkCommandHandler.cs HandleAsync (alreadyRequestedOrDone)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Network/DeleteNetworkEndpoint.cs HandleAsync ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/DeleteNetworkCommandHandler.cs HandleAsync (alreadyRequestedOrDone)
   test('NETL-01 deleting the run network is 202, then Deleted; a repeat is 202 and records nothing', async () => {
     const vms = (await get('tenant', '/v1/tenant/vms') as any[]).filter((v) => v.networkId === networkId)
     expect(vms, 'every VM on the run network is gone before this module').toEqual([])
@@ -56,11 +56,11 @@ test.describe.serial('network-lifecycle', () => {
     expect(countOf(actions, 'network.deleted')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/UpdateNetworkStatusCommandHandler.cs HandleAsync (case Deleted:
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/UpdateNetworkStatusCommandHandler.cs HandleAsync (case Deleted:
   // rule.MarkDeleted()) marks every live rule Deleted; the rule list drops Deleted rows
-  // (OpenViCloud/control-plane:Titan.Infrastructure/Repositories/FirewallRuleRepository.cs ListByNetworkAsync).
+  // (OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/FirewallRuleRepository.cs ListByNetworkAsync).
   // No outcome row: one is recorded only for a rule whose own delete was waiting
-  // (OpenViCloud/control-plane:Titan.Domain/Aggregates/Networking/FirewallRule/FirewallRule.cs MarkDeleted returns DeleteIsWaiting).
+  // (OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Networking/FirewallRule/FirewallRule.cs MarkDeleted returns DeleteIsWaiting).
   test('NETL-02 the rule on the deleted network reaches Deleted with it', async () => {
     const rules = await get('tenant', `/v1/tenant/networks/${networkId}/firewall-rules`) as any[]
     log(`NETL-02 rules of the deleted network: ${rules.length}`)
@@ -70,7 +70,7 @@ test.describe.serial('network-lifecycle', () => {
     expect(countOf(actions, 'firewall_rule.deleted')).toBe(0)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Repositories/NetworkRepository.cs ExistsByNameAsync — a Deleted network no longer holds its name
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/NetworkRepository.cs ExistsByNameAsync — a Deleted network no longer holds its name
   test('NETL-03 a network may take the name and CIDR of a Deleted one', async () => {
     const { zoneId } = await envOf()
     const reply = await call('tenant', 'POST', '/v1/tenant/networks', { name: networkName, zoneId, cidr: RUN_CIDR }, newKey())

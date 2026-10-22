@@ -6,17 +6,18 @@ import { RUN, envOf, runNetwork, waitVolume } from './fixtures'
 // Case BIL-16 of plan.md. Metered on beta-user, like BIL-01..03 (billing.spec.ts): money moves only
 // on admin-test (CLAUDE.md), and storage usage here produces no invoice or wallet movement.
 //
-// OpenViCloud/control-plane:Titan.Application/Options/BillingMeterOptions.cs (IntervalMinutes) — one tick every 10 minutes by default.
+// OpenViCloud/titan-control-plane:Titan.Application/Options/BillingMeterOptions.cs (IntervalMinutes) — one tick every 10 minutes by default.
 const TICK_MS = 10 * 60_000
 
-// OpenViCloud/control-plane:Titan.Application/Queries/Billing/UsageRecord/GetTenantBillingSummaryQueryHandler.cs
-// HandleAsync (storageCost) — the
-// only API-readable storage figure is storageCost = DISK + SNAPSHOT combined; there is no per-type breakdown and
-// no route exposes SnapshotOffering's price (grep across Titan.Infrastructure/Endpoints and Titan.Application/
-// Queries found none — only GetVmCostEndpoint breaks usage down by line, and it is Compute-only). So this spec
-// proves both DISK and SNAPSHOT contribute (storageCost grows by more than DISK alone would), and checks DISK's
-// exact formula against the live volume-offering price; it cannot independently verify the SNAPSHOT line's exact
-// value through a public API without hardcoding the dev SnapshotOffering price plan.md's own sample names.
+// OpenViCloud/titan-control-plane:Titan.Application/Queries/Billing/UsageRecord/GetTenantBillingSummaryQueryHandler.cs
+// HandleAsync (storageCost) — the only API-readable storage figure is storageCost = DISK + SNAPSHOT combined; there
+// is no per-type breakdown and no route exposes SnapshotOffering's price (grep across
+// OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints and
+// OpenViCloud/titan-control-plane:Titan.Application/Queries found none — only GetVmCostEndpoint breaks usage down by
+// line, and it is Compute-only). So this spec proves both DISK and SNAPSHOT contribute (storageCost grows by more
+// than DISK alone would), and checks DISK's exact formula against the live volume-offering price; it cannot
+// independently verify the SNAPSHOT line's exact value through a public API without hardcoding the dev
+// SnapshotOffering price plan.md's own sample names.
 const BILLED_GB = 1
 
 test.describe.serial('billing-storage', () => {
@@ -46,9 +47,9 @@ test.describe.serial('billing-storage', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Services/Billing/Metering/DiskMeterService.cs (DiskMeterService) — a 1 GB volume plus one
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Billing/Metering/DiskMeterService.cs (DiskMeterService) — a 1 GB volume plus one
   // snapshot of it both exist through a tick: storage grows at both DISK's and SNAPSHOT's rate, neither 0
-  // (OpenViCloud/titan:docs/architecture/money-and-wallet.md#round-once · OpenViCloud/titan:docs/features/billing/metering/design.md#meters).
+  // (OpenViCloud/titan-ops:docs/architecture/money-and-wallet.md#round-once · OpenViCloud/titan-ops:docs/features/billing/metering/design.md#meters).
   test('BIL-16 a 1 GB volume and its snapshot both add storage usage over a tick, neither line is 0', async () => {
     const { zoneId, volumeOfferingId } = await envOf()
     await runNetwork() // ensures the shared run network exists; this case needs no network of its own

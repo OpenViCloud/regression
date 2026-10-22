@@ -5,8 +5,8 @@ import { deleteVmAndWait, existenceShape, readVolume, waitNetwork, waitVolume } 
 
 // Case CLN-01 of plan.md (CLN-02 reads the Incus host). Runs last: removes every rg-* resource of beta-user
 // a module left behind, in an order Titan accepts — load balancers (a VM a live one sends to refuses its delete:
-// OpenViCloud/titan:docs/features/load-balancer/design.md#lb-and-vm-network), rules, VMs (their snapshots go with them, attached volumes are
-// released: OpenViCloud/titan:docs/features/volume/design.md#vm-delete-releases-volumes), volume snapshots, volumes, networks.
+// OpenViCloud/titan-ops:docs/features/load-balancer/design.md#lb-and-vm-network), rules, VMs (their snapshots go with them, attached volumes are
+// released: OpenViCloud/titan-ops:docs/features/volume/design.md#vm-delete-releases-volumes), volume snapshots, volumes, networks.
 function isTest(r: { name: string }): boolean {
   return r.name.startsWith('rg-')
 }
@@ -23,10 +23,10 @@ test.describe.serial('cleanup', () => {
     await closeSessions()
   })
 
-  // Rules go with their network (OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/UpdateNetworkStatusCommandHandler.cs
+  // Rules go with their network (OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/UpdateNetworkStatusCommandHandler.cs
   // HandleAsync, case Deleted: rule.MarkDeleted()), VM snapshots with their VM
-  // (OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync, case Deleted:
-  // MarkAllDeletedByVmIdAsync); lists hide Deleted (OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ListByTenantAsync).
+  // (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync, case Deleted:
+  // MarkAllDeletedByVmIdAsync); lists hide Deleted (OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ListByTenantAsync).
   test('CLN-01 no rg-* load balancer, network, VM, volume or snapshot is left', async () => {
     for (const lb of (await get('tenant', '/v1/tenant/load-balancers') as any[]).filter(isTest)) {
       log(`CLN-01 load balancer ${lb.name}`)

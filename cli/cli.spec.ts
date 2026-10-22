@@ -11,11 +11,11 @@ import { RUN, activityOf, countOf, createVm, deleteVmAndWait, envOf, getVm, runN
 // 'cli catalog' (CLI-05), 'cli lifecycle' (CLI-12..17), 'cli logout' (CLI-04). The binary is not in the image: when
 // this spec logs BINARY_WAIT the agent copies `openvicloud` built for the pod's architecture from the CLI commit the
 // release measures to /work/bin/openvicloud, checks sha256, then touches /work/bin/openvicloud.ready
-// (release:regression §Runner). Paths in the comments below are of the OpenViCloud/cli repository.
+// (release:regression §Runner).
 // Tokens stay in this process.
 //
 // Login and the binary wait are file-level (outside every describe): Playwright restarts the worker process after
-// any failed test in this file (workers: 1, fullyParallel: false — OpenViCloud/titan:gitops/regression-runner/runner-configmap.yaml),
+// any failed test in this file (workers: 1, fullyParallel: false — OpenViCloud/titan-ops:gitops/regression-runner/runner-configmap.yaml),
 // which drops module state (authUrl, browserRef) and re-runs only the hooks of describes that still have tests
 // left — a root-level beforeAll runs again, a nested one does not. The CLI's own session lives on disk under
 // CLI_HOME and survives a worker restart, so login happens at most once; CLI-11's known failure (SSH-REFUSAL-EDGE)
@@ -62,7 +62,7 @@ function run(program: string, args: string[]): Promise<CliResult> {
 }
 
 // Like run(), but writes `input` to stdin and closes it — for `vm delete`'s confirmation prompt
-// (command/root.go:53-58 reads one line from Stdin; without a close that read never returns).
+// (OpenViCloud/titan-cli:command/root.go Deps.Confirm reads one line from Stdin; without a close that read never returns).
 function runWithStdin(args: string[], input: string): Promise<CliResult> {
   return new Promise((resolve) => {
     const child = spawn(BINARY, args, { env: cliEnv() })
@@ -196,7 +196,8 @@ test.beforeAll(async ({ browser }) => {
   const config = await (await fetch(`${PORTAL}/config.json`)).json() as { keycloakUrl: string, keycloakRealm: string }
   authUrl = `${config.keycloakUrl}/realms/${config.keycloakRealm}`
   log(`cli auth url ${authUrl}`)
-  // The CLI refuses every command until the current terms are accepted (command/root.go:132-135).
+  // The CLI refuses every command until the current terms are accepted (OpenViCloud/titan-cli:command/root.go Deps.Client,
+  // Deps.mustAcceptTerms).
   const consent = await get('tenant', '/v1/legal/consent-status')
   if (consent.mustAcceptTerms) {
     expectStatus(await call('tenant', 'POST', '/v1/legal/acceptance'), 204)
@@ -214,7 +215,7 @@ test.afterAll(async () => {
 test.describe.serial('cli', () => {
   test.describe.configure({ timeout: 25 * 60_000 })
 
-  // command/version.go:10-12,22 — the build and the endpoints it targets
+  // OpenViCloud/titan-cli:command/version.go versionInfo, NewVersion — the build and the endpoints it targets
   test('CLI-01 version prints the build and the env endpoints', async () => {
     const result = await runCli(['version', '-o', 'json'])
     log(`CLI-01 exit=${result.code} ${result.stdout.trim()}`)
@@ -225,7 +226,8 @@ test.describe.serial('cli', () => {
     expect(info.version.length).toBeGreaterThan(0)
   })
 
-  // OpenViCloud/titan:docs/features/cli/design.md#login-on-the-web; command/tenant/tenant.go:43-50 — the fields `tenant get` shows
+  // OpenViCloud/titan-ops:docs/features/cli/design.md#login-on-the-web; OpenViCloud/titan-cli:command/tenant/tenant.go newGet — the fields
+  // `tenant get` shows
   test('CLI-02 login on the web, then `tenant get` answers what the API answers', async ({ browser }) => {
     const login = spawn(BINARY, ['auth', 'login'], { env: cliEnv() })
     let loginOut = ''
@@ -274,7 +276,7 @@ test.describe.serial('cli', () => {
     fs.writeFileSync(`${RESULTS}/cli-tenant-get.txt`, (await runCli(['tenant', 'get'])).stdout)
   })
 
-  // command/auth/auth.go:85-100 — who, and where
+  // OpenViCloud/titan-cli:command/auth/auth.go newStatus — who, and where
   test('CLI-03 `auth status` names beta-user and this env', async () => {
     const result = await runCli(['auth', 'status', '-o', 'json'])
     log(`CLI-03 exit=${result.code} ${result.stdout.trim()}`)
@@ -286,11 +288,12 @@ test.describe.serial('cli', () => {
 
   // --- vm ssh: a VM with the tenant's key, reached through the CLI's tunnel ---------------------------------------
   // Key pairs are made in the pod for this run and never leave it. Every attempt that reaches a running VM is one
-  // vm.ssh_requested row (OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/RequestVmSshCommandHandler.cs HandleAsync records it
+  // vm.ssh_requested row (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/RequestVmSshCommandHandler.cs HandleAsync records it
   // before the exec opens).
 
-  // command/vm/vm.go:71-80 (ssh's arguments) · OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/OpenVmSshEndpoint.cs (OpenVmSshEndpoint) ·
-  // OpenViCloud/control-plane:Titan.Infrastructure/Incus/IncusExecSession.cs IncusShellConnector.SshCommand (nc -N to port 22)
+  // OpenViCloud/titan-cli:command/vm/vm.go SshArgs (ssh's arguments) ·
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/OpenVmSshEndpoint.cs (OpenVmSshEndpoint) ·
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Incus/IncusExecSession.cs IncusShellConnector.SshCommand (nc -N to port 22)
   test('CLI-06 `vm ssh` reaches a running VM with the tenant\'s key; known_hosts keeps it under openvicloud-<id>', async () => {
     const { smallTier } = await envOf()
     fs.rmSync(SSH_DIR, { recursive: true, force: true })
@@ -349,7 +352,7 @@ test.describe.serial('cli', () => {
   })
 
   // Closing ssh ends the guest's side: nc -N passes the end to sshd
-  // (OpenViCloud/control-plane:Titan.Infrastructure/Incus/IncusExecSession.cs IncusShellConnector.SshCommand), so a failed login leaves
+  // (OpenViCloud/titan-control-plane:Titan.Infrastructure/Incus/IncusExecSession.cs IncusShellConnector.SshCommand), so a failed login leaves
   // no nc and no sshd behind. ssh's own failure is exit 255.
   test('CLI-08 a key the VM does not hold is refused with exit 255 and leaves no process in the guest', async () => {
     const stranger = await vmSsh('rg-stranger', 'yes', ['id', '-un'])
@@ -369,14 +372,15 @@ test.describe.serial('cli', () => {
     expect(lines.filter((line) => line.includes('[preauth]')).length).toBe(0)
   })
 
-  // command/root.go (ExitCodeOf), cmd/openvicloud/main.go: the CLI exits with ssh's exit code, which is the remote command's
+  // OpenViCloud/titan-cli:command/root.go ExitCodeOf, OpenViCloud/titan-cli:cmd/openvicloud/main.go main: the CLI exits with ssh's exit code,
+  // which is the remote command's
   test('CLI-09 the remote command\'s exit code is the CLI\'s exit code', async () => {
     const result = await vmSsh('rg-key', 'yes', ['exit', '7'])
     log(`CLI-09 exit=${result.code}`)
     expect(result.code).toBe(7)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Sessions/ShellRelay.cs ShellRelayOptions.Default (IdleTimeout): only 30 minutes without a byte either way ends a session
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Sessions/ShellRelay.cs ShellRelayOptions.Default (IdleTimeout): only 30 minutes without a byte either way ends a session
   test('CLI-10 a session with no byte for 5 minutes stays open', async () => {
     const started = Date.now()
     const result = await vmSsh('rg-key', 'yes', ['sleep 330; echo alive'])
@@ -387,9 +391,10 @@ test.describe.serial('cli', () => {
     expect(seconds).toBeGreaterThanOrEqual(330)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/OpenVmSshEndpoint.cs HandleAsync (WEBSOCKET_REQUIRED) · vm.go resolve (unknown name) ·
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs ShellInstanceName (not running) ·
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/RequestVmSshCommandHandler.cs HandleAsync (one activity row per attempt on a running VM, none on a VM that is not running)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/OpenVmSshEndpoint.cs HandleAsync (WEBSOCKET_REQUIRED) ·
+  // OpenViCloud/titan-cli:command/vm/vm.go resolve (unknown name) ·
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs ShellInstanceName (not running) ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/RequestVmSshCommandHandler.cs HandleAsync (one activity row per attempt on a running VM, none on a VM that is not running)
   test('CLI-11 refusals: a plain GET, an unknown VM, a stopped VM; activity counts the attempts', async () => {
     expectError(await call('tenant', 'GET', `/v1/tenant/vms/${vmId}/ssh`), 400, 'WEBSOCKET_REQUIRED')
     const unknown = await runCli(['vm', 'ssh', `rg-nope-${RUN}`])
@@ -424,7 +429,8 @@ test.describe.serial('cli', () => {
 // Runs outside the serial VM/ssh chain: a catalog read does not depend on CLI-06..11, and must not be skipped by
 // CLI-11's known failure (SSH-REFUSAL-EDGE, still open at the last release).
 test.describe('cli catalog', () => {
-  // command/catalog/catalog.go:15-41 (zone list) · money-and-wallet §money-is-long-vnd (the money-of-tenant part
+  // OpenViCloud/titan-cli:command/catalog/catalog.go NewZone (zone list) ·
+  // OpenViCloud/titan-ops:docs/architecture/money-and-wallet.md#money-is-long-vnd (the money-of-tenant part
   // of CLI-05 stays NOT COVERED in plan.md: no CLI command reads a tenant's own cost yet)
   test('CLI-05 zone/template/size list match GET /v1/zones, /v1/templates, /v1/vm-offerings to every digit', async () => {
     const { zoneId } = await envOf()
@@ -453,8 +459,8 @@ test.describe('cli catalog', () => {
       expect(fromCli!.diskGb).toBe(template.diskGb)
     }
 
-    // Prices are `decimal` server-side (OpenViCloud/control-plane:Titan.Application/Queries/Catalog/VmOffering/Contracts/VmOfferingQueryResult.cs VmOfferingQueryResult)
-    // and json.Number in the CLI (client.gen.go:572):
+    // Prices are `decimal` server-side (OpenViCloud/titan-control-plane:Titan.Application/Queries/Catalog/VmOffering/Contracts/VmOfferingQueryResult.cs VmOfferingQueryResult)
+    // and json.Number in the CLI (OpenViCloud/titan-cli:api/client.gen.go VmOfferingQueryResult):
     // both keep every digit on the wire. JSON.parse would renormalize "161388.0000000000" to 161388, so the
     // price and cpu fields are compared as raw text, not parsed.
     const sizeResult = await runCli(['size', 'list', '-o', 'json'])
@@ -505,7 +511,7 @@ test.describe.serial('cli lifecycle', () => {
     }
   })
 
-  // command/sshkey/sshkey.go:28-60 (add), :62-83 (list) · OpenViCloud/titan:docs/features/vm/design.md#ssh-key
+  // OpenViCloud/titan-cli:command/sshkey/sshkey.go newAdd (add), newList (list) · OpenViCloud/titan-ops:docs/features/vm/design.md#ssh-key
   test('CLI-12 `ssh-key add` then `ssh-key list` shows the fingerprint ssh-keygen computes for the same file', async () => {
     fs.rmSync(LIFECYCLE_SSH_DIR, { recursive: true, force: true })
     fs.mkdirSync(LIFECYCLE_SSH_DIR, { recursive: true })
@@ -532,7 +538,8 @@ test.describe.serial('cli lifecycle', () => {
     expect(key!.fingerprint).toMatch(/^SHA256:/)
   })
 
-  // command/vm/lifecycle.go:105-178 (create --wait), :325 (ssh resolve) — create by name, size m, then log in
+  // OpenViCloud/titan-cli:command/vm/lifecycle.go newCreate, waitFor (create --wait) ·
+  // OpenViCloud/titan-cli:command/vm/vm.go resolve (ssh by name) — create by name, size m, then log in
   test('CLI-13 `vm create --wait` reaches Running/Ready and matches the API; `vm ssh … id -un` prints ubuntu', async () => {
     test.setTimeout(20 * 60_000)
     const { zoneId, templateId } = await envOf()
@@ -571,7 +578,7 @@ test.describe.serial('cli lifecycle', () => {
     expect(result.stdout.trim()).toBe('ubuntu')
   })
 
-  // command/vm/lifecycle.go:240-290 (newStop/newStart share newRequest, both take --wait)
+  // OpenViCloud/titan-cli:command/vm/lifecycle.go newRequest (newStop/newStart share newRequest, both take --wait)
   test('CLI-14 `vm stop --wait` then `vm start --wait` report Stopped, then Running/Ready', async () => {
     test.setTimeout(10 * 60_000)
     const stopped = await runCli(['vm', 'stop', VM2_NAME, '--wait'])
@@ -585,8 +592,8 @@ test.describe.serial('cli lifecycle', () => {
     expect(started.stdout).toMatch(/State:\s+(Running|Ready)\s*$/m)
   })
 
-  // command/vm/lifecycle.go:105-178 (resolveNetwork/createVm — client-side resolution before any POST) ·
-  // OpenViCloud/titan:docs/features/cli/design.md#error-codes. Runs before CLI-15 renames/deletes VM2_NAME: the taken-name case
+  // OpenViCloud/titan-cli:command/vm/lifecycle.go newCreate (resolveNetwork/createVm — client-side resolution before any POST) ·
+  // OpenViCloud/titan-ops:docs/features/cli/design.md#error-codes. Runs before CLI-15 renames/deletes VM2_NAME: the taken-name case
   // needs a live VM holding that name.
   test('CLI-16 create refuses an unknown network with no new VM, and a taken name with (VM_NAME_TAKEN)', async () => {
     const { zoneId, templateId } = await envOf()
@@ -614,13 +621,13 @@ test.describe.serial('cli lifecycle', () => {
     }
   })
 
-  // command/vm/lifecycle.go:205-230 (rename), :240-289 (delete's confirm prompt and --yes)
+  // OpenViCloud/titan-cli:command/vm/lifecycle.go newRename (rename), newRequest (delete's confirm prompt and --yes)
   test('CLI-15 rename, decline delete, then `--yes --wait` deletes and the API shows currentExistence Deleted', async () => {
     test.setTimeout(10 * 60_000)
     const renamed = await runCli(['vm', 'rename', VM2_NAME, VM3_NAME])
     log(`CLI-15 rename exit=${renamed.code} stderr="${renamed.stderr.trim()}"`)
     expect(renamed.code, renamed.stderr).toBe(0)
-    // newRename only calls deps.Printer.Message, which writes to Err (printer.go), not Out.
+    // newRename only calls deps.Printer.Message, which writes to Err (OpenViCloud/titan-cli:output/printer.go Printer.Message), not Out.
     expect(renamed.stderr).toMatch(/renamed to/)
     const got = await runCli(['vm', 'get', VM3_NAME, '-o', 'json'])
     expect(got.code, got.stderr).toBe(0)
@@ -644,7 +651,7 @@ test.describe.serial('cli lifecycle', () => {
     lifecycleVmId = '' // afterAll's deleteVmAndWait is a no-op on an already-Deleted VM; clearing it just skips the read.
   })
 
-  // command/sshkey/sshkey.go:85-116 (delete --yes)
+  // OpenViCloud/titan-cli:command/sshkey/sshkey.go newDelete (delete --yes)
   test('CLI-17 `ssh-key delete --yes` removes the key from `ssh-key list`', async () => {
     const deletedResult = await runCli(['ssh-key', 'delete', KEY_NAME, '--yes'])
     log(`CLI-17 exit=${deletedResult.code} stderr="${deletedResult.stderr.trim()}"`)
@@ -661,7 +668,8 @@ test.describe.serial('cli lifecycle', () => {
 
 // CLI-04 is last and on its own: it logs the CLI out, so nothing after it in this file may assume a session.
 test.describe('cli logout', () => {
-  // command/auth/auth.go:56-73 (logout), command/root.go:172-175 (not logged in): a sentence, exit ≠ 0
+  // OpenViCloud/titan-cli:command/auth/auth.go newLogout (logout), OpenViCloud/titan-cli:command/root.go Deps.explainSession (not logged in):
+  // a sentence, exit ≠ 0
   test('CLI-04 after logout, `tenant get` fails with a readable sentence and a non-zero exit', async () => {
     const logout = await runCli(['auth', 'logout'])
     expect(logout.code).toBe(0)
