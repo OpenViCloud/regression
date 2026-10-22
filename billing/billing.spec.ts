@@ -7,11 +7,11 @@ import { RUN, createVm, deleteVmAndWait, envOf, runNetwork, runs, waitVm, waitVo
 // invoices seed-invoices.sql made before this job (the agent runs it); BIL-14 is check-wallets.sql, run after.
 // Usage (BIL-01..03) is metered on beta-user: metering moves no money.
 
-// OpenViCloud/control-plane:Titan.Application/Options/BillingMeterOptions.cs (IntervalMinutes) — one tick every 10 minutes by default
+// OpenViCloud/titan-control-plane:Titan.Application/Options/BillingMeterOptions.cs (IntervalMinutes) — one tick every 10 minutes by default
 const TICK_MS = 10 * 60_000
 
 // A usage record keeps the raw product; whole VND happens once, on the invoice line
-// (OpenViCloud/titan:docs/architecture/money-and-wallet.md#round-once). Any size bills; 10 GB makes the storage step easy to read in the log.
+// (OpenViCloud/titan-ops:docs/architecture/money-and-wallet.md#round-once). Any size bills; 10 GB makes the storage step easy to read in the log.
 const BILLED_GB = 10
 
 type Invoice = { id: string, status: string, total: number, paymentState: string | null, paidBy: string | null }
@@ -76,7 +76,7 @@ test.describe.serial('billing', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/TopUp/GrantTopUpAdminEndpoint.cs (Configure: Post("v1/admin/topups/grant"),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/TopUp/GrantTopUpAdminEndpoint.cs (Configure: Post("v1/admin/topups/grant"),
   // Roles("platform-admin"); HandleAsync: SendAsync(result, 201))
   test('BIL-11 admin grants promo credit: 201 {topUpId}, the wallet grows by it, a Promo line', async () => {
     const tenant = await get('admin', '/v1/tenant')
@@ -91,10 +91,10 @@ test.describe.serial('billing', () => {
     expect(promos).toBeGreaterThan(0)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/TopUp/CreateTopUpEndpoint.cs (CreateTopUpEndpoint);
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/TopUp/ConfirmTopUpAdminEndpoint.cs (Configure: Post("v1/admin/topups/{id:guid}/confirm"),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/TopUp/CreateTopUpEndpoint.cs (CreateTopUpEndpoint);
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/TopUp/ConfirmTopUpAdminEndpoint.cs (Configure: Post("v1/admin/topups/{id:guid}/confirm"),
   // Roles("platform-admin"); HandleAsync: 202);
-  // OpenViCloud/control-plane:Titan.Application/Services/Billing/TopUp/TopUpConfirmation.cs ConfirmAsync (already Confirmed ⇒ return) — a repeat credits nothing
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Billing/TopUp/TopUpConfirmation.cs ConfirmAsync (already Confirmed ⇒ return) — a repeat credits nothing
   test('BIL-10 a top-up confirmed by admin credits the wallet once; a second confirm is a 202 no-op', async () => {
     const before = await wallet()
     const reply = await call('admin', 'POST', '/v1/tenant/topups', { amount: 10000 }, newKey())
@@ -111,8 +111,8 @@ test.describe.serial('billing', () => {
     expect(mine.find((t) => t.id === topUpId).status).toBe('Confirmed')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Services/Billing/Invoice/InvoiceWalletSettlement.cs (SettleAsync); the consumer applies
-  // the debit later (OpenViCloud/titan:docs/features/billing/invoice/design.md#pay-routes)
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Billing/Invoice/InvoiceWalletSettlement.cs (SettleAsync); the consumer applies
+  // the debit later (OpenViCloud/titan-ops:docs/features/billing/invoice/design.md#pay-routes)
   test('BIL-04 the tenant pays an invoice from a wallet that covers it: 202, then Settled and debited once', async () => {
     const before = await wallet()
     const debitsBefore = (await get('admin', '/v1/tenant/wallet/statement')).lines.filter((l: any) => l.amount === -1111).length
@@ -127,7 +127,7 @@ test.describe.serial('billing', () => {
     expect(statement.lines.filter((l: any) => l.amount === -1111).length).toBe(debitsBefore + 1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Services/Billing/Invoice/InvoiceWalletSettlement.cs IsAlreadyPaidFromWalletAsync — the wallet already paid it
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Billing/Invoice/InvoiceWalletSettlement.cs IsAlreadyPaidFromWalletAsync — the wallet already paid it
   test('BIL-05 paying it again is 202 and debits nothing', async () => {
     const before = await wallet()
     expectStatus(await call('admin', 'POST', `/v1/tenant/billing/invoices/${invoices[1111]}/pay`), 202)
@@ -135,7 +135,7 @@ test.describe.serial('billing', () => {
     expect(await wallet()).toBe(before)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Services/Billing/Invoice/InvoiceWalletSettlement.cs SettleAsync (INVOICE_WALLET_INSUFFICIENT)
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Billing/Invoice/InvoiceWalletSettlement.cs SettleAsync (INVOICE_WALLET_INSUFFICIENT)
   test('BIL-06 an invoice larger than the wallet is 422 INVOICE_WALLET_INSUFFICIENT and the wallet is unchanged', async () => {
     const before = await wallet()
     expectError(await call('admin', 'POST', `/v1/tenant/billing/invoices/${invoices[900000000]}/pay`), 422, 'INVOICE_WALLET_INSUFFICIENT')
@@ -143,7 +143,7 @@ test.describe.serial('billing', () => {
     expect((await readInvoice(900000000)).status).toBe('New')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Billing/SettleInvoiceFromWalletAdminEndpoint.cs (Configure: Post("v1/admin/invoices/{invoiceId:guid}/settle-from-wallet"),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Billing/SettleInvoiceFromWalletAdminEndpoint.cs (Configure: Post("v1/admin/invoices/{invoiceId:guid}/settle-from-wallet"),
   // Roles("platform-admin"); HandleAsync: 202)
   test('BIL-07 admin settles an invoice from the tenant wallet: 202, then Settled and the wallet pays it', async () => {
     const before = await wallet()
@@ -154,8 +154,8 @@ test.describe.serial('billing', () => {
     await waitWallet('BIL-07 wallet', before - 2222)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Billing/Invoice/MarkInvoicePaidCommandHandler.cs HandleAsync (alreadyMarkedPaid: repeat),
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Billing/Invoice/Invoice.cs MarkPaid (INVOICE_ALREADY_PAID: paid by the wallet already)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Billing/Invoice/MarkInvoicePaidCommandHandler.cs HandleAsync (alreadyMarkedPaid: repeat),
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Billing/Invoice/Invoice.cs MarkPaid (INVOICE_ALREADY_PAID: paid by the wallet already)
   test('BIL-08 MarkPaid is 204 and touches no wallet; a repeat is 204; on a wallet-settled invoice 422 INVOICE_ALREADY_PAID', async () => {
     const before = await wallet()
     const reply = await call('admin', 'PATCH', `/v1/admin/invoices/${invoices[3333]}/pay`)
@@ -168,8 +168,8 @@ test.describe.serial('billing', () => {
     expectError(await call('admin', 'PATCH', `/v1/admin/invoices/${invoices[1111]}/pay`), 422, 'INVOICE_ALREADY_PAID')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Billing/GetReceivablesAdminEndpoint.cs (Configure, Roles("platform-admin"));
-  // OpenViCloud/control-plane:Titan.Application/Queries/Billing/Invoice/Contracts/TenantReceivableLine.cs (TenantReceivableLine)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Billing/GetReceivablesAdminEndpoint.cs (Configure, Roles("platform-admin"));
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Billing/Invoice/Contracts/TenantReceivableLine.cs (TenantReceivableLine)
   test('BIL-15 receivables carry debtCeiling and overCeiling for admin-test, who still owes the large invoice', async () => {
     const tenant = await get('admin', '/v1/tenant')
     const receivables = await get('admin', '/v1/admin/billing/receivables')
@@ -180,21 +180,21 @@ test.describe.serial('billing', () => {
     expect(line.overCeiling).toBe(line.outstanding > line.debtCeiling)
   })
 
-  // OpenViCloud/titan:docs/features/billing/topup/design.md#topup-routes — the old routes are gone
+  // OpenViCloud/titan-ops:docs/features/billing/topup/design.md#topup-routes — the old routes are gone
   test('BIL-12 removed wallet routes answer 404', async () => {
     expectStatus(await call('admin', 'GET', '/v1/tenant/wallet/receipts'), 404)
     expectStatus(await call('admin', 'GET', '/v1/tenant/wallet/topups'), 404)
   })
 
-  // OpenViCloud/control-plane:Titan.Host/Program.cs (MapHealthChecks("/healthz/wallet"))
+  // OpenViCloud/titan-control-plane:Titan.Host/Program.cs (MapHealthChecks("/healthz/wallet"))
   test('BIL-13 /healthz/wallet is Healthy', async () => {
     const reply = await call('anonymous', 'GET', '/healthz/wallet')
     log(`BIL-13 ${reply.status} ${reply.text.slice(0, 200)}`)
     expectStatus(reply, 200)
   })
 
-  // Metering, on beta-user (no money moves). OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VmRepository.cs
-  // ListBillableAsync — Running, Ready, Frozen, Error are billed; Stopped is not (OpenViCloud/titan:docs/features/vm/design.md#counting-and-billing)
+  // Metering, on beta-user (no money moves). OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs
+  // ListBillableAsync — Running, Ready, Frozen, Error are billed; Stopped is not (OpenViCloud/titan-ops:docs/features/vm/design.md#counting-and-billing)
   test('BIL-01..03 a running VM gets RUNNING_VM usage at the tier price, a 10 GB volume gets storage usage, a stopped VM gets no more', async () => {
     const { smallTier, zoneId, volumeOfferingId } = await envOf()
     const networkId = (await runNetwork()).id
@@ -208,8 +208,8 @@ test.describe.serial('billing', () => {
 
     const cost = await pollUntil('BIL-01 compute usage', () => get('tenant', `/v1/tenant/vms/${vmId}/cost`),
       (c) => c.breakdown.length > 0, (c) => `lines=${c.breakdown.length} total=${c.totalCost}`, 2 * TICK_MS + 2 * 60_000, 30_000)
-    // OpenViCloud/control-plane:Titan.Domain/Aggregates/Billing/UsageRecord/UsageRecord.cs (UsageRecord) — a running VM's line; one tick
-    // costs the tier's hourly price × tick/60, not rounded (OpenViCloud/titan:docs/architecture/money-and-wallet.md#round-once)
+    // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Billing/UsageRecord/UsageRecord.cs (UsageRecord) — a running VM's line; one tick
+    // costs the tier's hourly price × tick/60, not rounded (OpenViCloud/titan-ops:docs/architecture/money-and-wallet.md#round-once)
     expect(cost.breakdown.every((l: any) => l.usageType === 'RUNNING_VM')).toBe(true)
     const price = (await get('anonymous', '/v1/vm-offerings') as any[]).find((o) => o.id === smallTier).pricePerHour as number
     log(`BIL-01 first line ${JSON.stringify(cost.breakdown[0])}, price/h ${price}`)

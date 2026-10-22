@@ -33,9 +33,9 @@ test.describe.serial('tenant-suspend', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantStatusEndpoint.cs (Configure: Patch("v1/tenants/{tenantId:guid}/status");
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantStatusEndpoint.cs (Configure: Patch("v1/tenants/{tenantId:guid}/status");
   // HandleAsync: SendNoContentAsync);
-  // OpenViCloud/control-plane:Titan.Infrastructure/Auth/TenantResolutionMiddleware.cs InvokeAsync (isWrite ⇒ TENANT_SUSPENDED) (a middleware 403 is {code, message}: OpenViCloud/titan:docs/architecture/http-contract.md, named exceptions) — writes refused, reads pass
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/TenantResolutionMiddleware.cs InvokeAsync (isWrite ⇒ TENANT_SUSPENDED) (a middleware 403 is {code, message}: OpenViCloud/titan-ops:docs/architecture/http-contract.md, named exceptions) — writes refused, reads pass
   test('SUS-01 a suspended tenant reads but cannot write: 403 TENANT_SUSPENDED', async () => {
     suspended = true
     await setStatus('Suspended')
@@ -51,7 +51,7 @@ test.describe.serial('tenant-suspend', () => {
     expect(networks.some((n) => n.name === `rg-susnet-${RUN}`)).toBe(false)
   })
 
-  // OpenViCloud/titan:docs/features/tenant/design.md#tenant-status-repeats
+  // OpenViCloud/titan-ops:docs/features/tenant/design.md#tenant-status-repeats
   test('SUS-02 suspending again is 204', async () => {
     await setStatus('Suspended')
     expect((await get('tenant', '/v1/tenant')).status).toBe('Suspended')

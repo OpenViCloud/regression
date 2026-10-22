@@ -14,7 +14,7 @@ test.describe.serial('smoke', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Host/Program.cs (MapHealthChecks("/healthz"), MapHealthChecks("/healthz/reconcilers"))
+  // OpenViCloud/titan-control-plane:Titan.Host/Program.cs (MapHealthChecks("/healthz"), MapHealthChecks("/healthz/reconcilers"))
   test('SMOKE-01 healthz and reconcilers are healthy', async () => {
     const health = await call('anonymous', 'GET', '/healthz')
     expectStatus(health, 200)
@@ -24,15 +24,15 @@ test.describe.serial('smoke', () => {
     expect(reconcilers.text).toContain('Healthy')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Catalog/ListZonesEndpoint.cs (Configure, AllowAnonymous)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/ListZonesEndpoint.cs (Configure, AllowAnonymous)
   test('SMOKE-02 zones are listed without a token', async () => {
     const zones = await get('anonymous', '/v1/zones') as Array<{ id: string }>
     log(`SMOKE-02 zones ${zones.map((z) => z.id).join(',')}`)
     expect(zones.length).toBeGreaterThan(0)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Catalog/ListVmOfferingsEndpoint.cs (Configure, AllowAnonymous),
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Catalog/ListVolumeOfferingsEndpoint.cs (Configure, AllowAnonymous)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/ListVmOfferingsEndpoint.cs (Configure, AllowAnonymous),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/ListVolumeOfferingsEndpoint.cs (Configure, AllowAnonymous)
   test('SMOKE-03 offerings are listed with prices without a token', async () => {
     const vmOfferings = await get('anonymous', '/v1/vm-offerings') as Array<{ id: string, pricePerHour: number }>
     expect(vmOfferings.length).toBeGreaterThan(0)
@@ -46,15 +46,15 @@ test.describe.serial('smoke', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Platform/Tenant/Contracts/TenantQueryResult.cs (TenantQueryResult: Status, no provider account)
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Platform/Tenant/Contracts/TenantQueryResult.cs (TenantQueryResult: Status, no provider account)
   test('SMOKE-04 beta-user signs in and its tenant is Active', async () => {
     const tenant = await get('tenant', '/v1/tenant')
     log(`SMOKE-04 tenant status=${tenant.status} maxVms=${tenant.maxVms} maxNetworks=${tenant.maxNetworks}`)
     expect(tenant.status).toBe('Active')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ListByTenantAsync,
-  // OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VolumeRepository.cs ListByTenantAsync — lists hide Deleted; the run network may stay (CLAUDE.md)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ListByTenantAsync,
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VolumeRepository.cs ListByTenantAsync — lists hide Deleted; the run network may stay (CLAUDE.md)
   test('SMOKE-05 no test resource is left from an earlier run, and there is room for the run network', async () => {
     const tenant = await get('tenant', '/v1/tenant')
     const networks = await get('tenant', '/v1/tenant/networks') as Array<{ name: string }>

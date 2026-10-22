@@ -11,7 +11,7 @@ import { startLocalProxyIfNeeded } from './local-proxy'
 // actions answer 202 with no body) are asserted where each route runs: NET-06, VM-08, TEN-02, TEN-04, BIL-08 and
 // BIL-04, BIL-07, BIL-10, CAT-06.
 
-// The ten creates that carry IRequiresIdempotencyKey (OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/{Vm,Volume,
+// The ten creates that carry IRequiresIdempotencyKey (OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/{Vm,Volume,
 // Network,VmSnapshots,VolumeSnapshots,TopUp,SshKey}/*). Route ids are random: the key check runs before the endpoint.
 function tenCreates(): Array<{ as: 'tenant' | 'admin', path: string }> {
   const id = randomUUID()
@@ -78,7 +78,7 @@ test.describe.serial('contract', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IDEMPOTENCY_KEY_REQUIRED)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IDEMPOTENCY_KEY_REQUIRED)
   test('CON-03 each of the ten creates without Idempotency-Key is 400 IDEMPOTENCY_KEY_REQUIRED', async () => {
     const creates = tenCreates()
     expect(creates.length).toBe(10)
@@ -89,7 +89,7 @@ test.describe.serial('contract', () => {
     }
   })
 
-  // OpenViCloud/titan:docs/architecture/http-contract.md#error-envelope — { status, title, code }
+  // OpenViCloud/titan-ops:docs/architecture/http-contract.md#error-envelope — { status, title, code }
   test('CON-04 a body that breaks the validator is 400 {status, title, code: VALIDATION_ERROR}', async () => {
     const reply = await call('tenant', 'POST', '/v1/tenant/networks', { name: '', zoneId: '' }, randomUUID())
     expectError(reply, 400, 'VALIDATION_ERROR')
@@ -98,14 +98,14 @@ test.describe.serial('contract', () => {
     expect(typeof body.title).toBe('string')
   })
 
-  // OpenViCloud/control-plane:Titan.Host/Program.cs (AddJwtBearer) — JWT bearer on every non-anonymous route
+  // OpenViCloud/titan-control-plane:Titan.Host/Program.cs (AddJwtBearer) — JWT bearer on every non-anonymous route
   test('CON-05 no token or a broken token is 401', async () => {
     expect((await raw('GET', '/v1/tenant', {})).status).toBe(401)
     expect((await raw('GET', '/v1/tenant', { Authorization: 'Bearer not-a-token' })).status).toBe(401)
   })
 
-  // Roles("platform-admin") on every admin endpoint (OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Admin/*,
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/ListTenantsEndpoint.cs)
+  // Roles("platform-admin") on every admin endpoint (OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Admin/*,
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/ListTenantsEndpoint.cs)
   test('CON-06 beta-user on admin routes is 403', async () => {
     for (const path of ['/v1/admin/vms', '/v1/admin/networks', '/v1/admin/audit-log', '/v1/tenants', '/v1/admin/billing/receivables']) {
       const reply = await call('tenant', 'GET', path)
@@ -114,7 +114,7 @@ test.describe.serial('contract', () => {
     }
   })
 
-  // OpenViCloud/titan:docs/architecture/provider-and-worker.md#provider-command-lease — /internal/* needs X-Internal-Token
+  // OpenViCloud/titan-ops:docs/architecture/provider-and-worker.md#provider-command-lease — /internal/* needs X-Internal-Token
   test('CON-07 /internal/* without X-Internal-Token is 401, even with a user token', async () => {
     const user = await headersOf('tenant')
     for (const path of ['/internal/reconcile/vms?zoneId=x', '/internal/reconcile/networks?zoneId=x']) {
@@ -126,7 +126,7 @@ test.describe.serial('contract', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Host/Program.cs (AddCors, policy corsPolicyName) — Cors:AllowedOrigins (portal, admin, site of the env)
+  // OpenViCloud/titan-control-plane:Titan.Host/Program.cs (AddCors, policy corsPolicyName) — Cors:AllowedOrigins (portal, admin, site of the env)
   test('CON-08 CORS preflight allows the portal and admin origins and not a stranger', async () => {
     const preflight = (origin: string) => raw('OPTIONS', '/v1/tenant', {
       Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization',
@@ -140,10 +140,10 @@ test.describe.serial('contract', () => {
     expect(stranger.headers.get('access-control-allow-origin')).toBeNull()
   })
 
-  // OpenViCloud/titan:docs/architecture/platform-infra.md — staging serves api, portal and admin over TLS on its own names
-  // OpenViCloud/titan:docs/architecture/http-contract.md#error-envelope — error bodies declare their length; the edge turns a refused
-  // upgrade answered chunked into its own 502. OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/OpenVmSshEndpoint.cs
-  // HandleAsync (GetVmShellTargetQuery) → OpenViCloud/control-plane:Titan.Application/Services/Compute/ComputeOwnership.cs RequireVmAsync (VM_NOT_FOUND)
+  // OpenViCloud/titan-ops:docs/architecture/platform-infra.md — staging serves api, portal and admin over TLS on its own names
+  // OpenViCloud/titan-ops:docs/architecture/http-contract.md#error-envelope — error bodies declare their length; the edge turns a refused
+  // upgrade answered chunked into its own 502. OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/OpenVmSshEndpoint.cs
+  // HandleAsync (GetVmShellTargetQuery) → OpenViCloud/titan-control-plane:Titan.Application/Services/Compute/ComputeOwnership.cs RequireVmAsync (VM_NOT_FOUND)
   test('CON-12 a refused websocket upgrade reaches the client with its JSON code, not the edge 502', async () => {
     const reply = await upgrade(`/v1/tenant/vms/${randomUUID()}/ssh`, await headersOf('tenant'))
     log(`CON-12 → ${reply.status} ${reply.contentType} ${reply.text.slice(0, 200)}`)

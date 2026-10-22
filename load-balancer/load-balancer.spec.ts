@@ -73,7 +73,7 @@ test.describe.serial('load-balancer', () => {
     ])
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Networking/Network/Network.cs BeginLoadBalancer — Incus refuses a load
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Networking/Network/Network.cs BeginLoadBalancer — Incus refuses a load
   // balancer on a network with no uplink, and a network without public IPv6 has none
   test('LB-01 a load balancer on a network without public IPv6 is 422 LOAD_BALANCER_NEEDS_PUBLIC_IPV6', async () => {
     expectError(await call('tenant', 'POST', '/v1/tenant/load-balancers',
@@ -81,7 +81,7 @@ test.describe.serial('load-balancer', () => {
       422, 'LOAD_BALANCER_NEEDS_PUBLIC_IPV6')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/LoadBalancer/LoadBalancerSpecRules.cs (LoadBalancerSpecRules)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/LoadBalancer/LoadBalancerSpecRules.cs (LoadBalancerSpecRules)
   test('LB-02 no listener, or the same protocol and port twice, is 400 VALIDATION_ERROR', async () => {
     const backends = [{ vmId: '00000000-0000-0000-0000-000000000001' }]
     expectError(await call('tenant', 'POST', '/v1/tenant/load-balancers',
@@ -90,7 +90,7 @@ test.describe.serial('load-balancer', () => {
       { name: lbName, networkId: runNetworkId, listeners: [http, { ...http, targetPort: 9090 }], backends }, newKey()), 400, 'VALIDATION_ERROR')
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/LoadBalancer/LoadBalancerVip.cs (LoadBalancerVip) — interface id 0:0:1:n of the /64
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/LoadBalancer/LoadBalancerVip.cs (LoadBalancerVip) — interface id 0:0:1:n of the /64
   test('LB-03 on an IPv6 network with a VM: 202, then Exists, VIP <64>::1:1, the VM as backend', async () => {
     const { zoneId, smallTier } = await envOf()
     const clusters = await get('admin', '/v1/admin/clusters') as any[]
@@ -121,7 +121,7 @@ test.describe.serial('load-balancer', () => {
     expect(lb.backends).toEqual([{ vmId }])
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/LoadBalancer/UpdateLoadBalancerCommandHandler.cs HandleAsync — the same
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/LoadBalancer/UpdateLoadBalancerCommandHandler.cs HandleAsync — the same
   // configuration is a repeat; another one is a new request the worker writes in one PUT
   test('LB-04 PUT of the same configuration changes nothing; PUT of a new one goes Updating, then rests on it', async () => {
     test.skip(lbId === '', 'LB-03 did not create a load balancer')
@@ -133,7 +133,7 @@ test.describe.serial('load-balancer', () => {
     expect(lb.listeners).toEqual([http, dns])
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (VM_IS_LOAD_BALANCER_BACKEND) — refused, the load balancer is not
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (VM_IS_LOAD_BALANCER_BACKEND) — refused, the load balancer is not
   // edited behind the customer's back
   test('LB-05 deleting a VM a load balancer sends to is 422 VM_IS_LOAD_BALANCER_BACKEND', async () => {
     test.skip(lbId === '', 'LB-03 did not create a load balancer')
@@ -141,7 +141,7 @@ test.describe.serial('load-balancer', () => {
     expect((await get('tenant', `/v1/tenant/vms/${vmId}`)).desiredExistence).toBe('Exists')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/LoadBalancer/DeleteLoadBalancerCommandHandler.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/LoadBalancer/DeleteLoadBalancerCommandHandler.cs HandleAsync
   test('LB-06 delete is 202, then Deleted; a repeat is 202; one request and one outcome each', async () => {
     test.skip(lbId === '', 'LB-03 did not create a load balancer')
     const reply = await call('tenant', 'DELETE', `/v1/tenant/load-balancers/${lbId}`)

@@ -1,12 +1,12 @@
-# regression — OpenViCloud's regression suite
+# titan-regression — OpenViCloud's regression suite
 
-The durable regression suite of [OpenViCloud](https://github.com/OpenViCloud/titan). Every behaviour that must still
+The durable regression suite of [OpenViCloud](https://github.com/OpenViCloud/titan-ops). Every behaviour that must still
 hold at the next release has a case in [`plan.md`](plan.md) and, once written, a Playwright spec here. Before each
 release the whole suite runs against staging; a release pins the commit of this repository it ran.
 
 The specs drive the public API, the portals and the CLI of a running OpenViCloud environment. They do not run on a
 laptop: each module runs as a job of the `titan-regression` runner inside the cluster (its manifests are in
-[titan's `gitops/regression-runner/`](https://github.com/OpenViCloud/titan/tree/main/gitops/regression-runner)),
+[titan-ops's `gitops/regression-runner/`](https://github.com/OpenViCloud/titan-ops/tree/main/gitops/regression-runner)),
 which signs in with the test accounts there, so no credential passes through the machine that starts the run.
 
 ## Layout
@@ -32,7 +32,7 @@ python3 count-cases.py <work dir of each module>/runner.log ...
 
 The source tree is `git archive <sha>` of this repository, extracted, with any new specs copied in; run the
 script from a checkout so its first line names the commit. The full procedure (order, steps outside the runner, evidence) is
-[`release:regression`](https://github.com/OpenViCloud/titan/blob/main/.claude/commands/release/regression.md).
+[`release:regression`](https://github.com/OpenViCloud/titan-ops/blob/main/.claude/commands/release/regression.md).
 
 ## Test the tooling
 
@@ -73,8 +73,8 @@ module that changes the tenant's state and the one that deletes the run's networ
 | 19 | `network-lifecycle` | deletes the run's network (with its rules), recreates the same name | yes | yes | yes |
 | 20 | `login-page` | Keycloak sign-in page: layout, colours, font, brand, sign-up form, language (no sign-in) | yes | yes | yes |
 | 21 | `cleanup` | sweeps `rg-*` through the API, asserts 0 (on Incus: CLN-02, host) | yes | yes | yes |
-| 22 | `worker` | the worker image staging runs comes from `OpenViCloud/incus-worker`, pulls anonymously; the worker's command kinds match the control plane's — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
-| 23 | `control-plane-image` | the control plane image staging runs comes from `OpenViCloud/control-plane`, pulls anonymously, digest matches the pod — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
+| 22 | `worker` | the worker image staging runs comes from `OpenViCloud/titan-incus-worker`, pulls anonymously; the worker's command kinds match the control plane's — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
+| 23 | `control-plane-image` | the control plane image staging runs comes from `OpenViCloud/titan-control-plane`, pulls anonymously, digest matches the pod — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
 
 Steps outside the runner: before `billing` the agent runs `billing/seed-invoices.sql` (psql on the environment's
 database; on staging an approved `L-x`), after `concurrency` it runs `billing/check-wallets.sql` (read only, BIL-14);

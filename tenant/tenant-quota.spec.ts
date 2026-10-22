@@ -49,7 +49,7 @@ test.describe.serial('tenant-quota', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs (UpdateQuotaRequest) — an absent optional cap
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs (UpdateQuotaRequest) — an absent optional cap
   // (UpdateTenantQuotaCommand.KeepOrReplace) is kept as it is; only maxVms/maxNetworks are mandatory.
   test('TEN-08 PATCH quota with only maxVms and maxNetworks keeps the other 7 caps', async () => {
     const before = original!
@@ -72,7 +72,7 @@ test.describe.serial('tenant-quota', () => {
     expect(quotaOf(await ownRow(tenantId))).toEqual(before)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs UpdateQuotaValidator — maxVms and maxNetworks are NotNull(); a request missing one never reaches
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs UpdateQuotaValidator — maxVms and maxNetworks are NotNull(); a request missing one never reaches
   // the handler, so a bind bug cannot turn an absent field into a silent 0.
   test('TEN-09 PATCH quota missing maxVms is 400 VALIDATION_ERROR and changes nothing', async () => {
     const before = original!

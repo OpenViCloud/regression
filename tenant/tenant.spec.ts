@@ -21,7 +21,7 @@ test.describe.serial('tenant', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Platform/Tenant/Contracts/TenantQueryResult.cs (TenantQueryResult, From) — the caller's view and
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Platform/Tenant/Contracts/TenantQueryResult.cs (TenantQueryResult, From) — the caller's view and
   // the admin list share one shape
   test('TEN-01 GET /v1/tenant carries maxVms, maxNetworks, maxVolumes, maxPublicIpv6, debtCeiling, the same as the admin list', async () => {
     const own = await get('tenant', '/v1/tenant')
@@ -40,7 +40,7 @@ test.describe.serial('tenant', () => {
     expect(own.maxPublicIpv6).toBeGreaterThanOrEqual(0)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs (UpdateQuotaRequest; Configure: Patch("v1/tenants/{tenantId:guid}/quota"))
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs (UpdateQuotaRequest; Configure: Patch("v1/tenants/{tenantId:guid}/quota"))
   test('TEN-02 admin PATCH quota is 204 and the tenant reads the new caps', async () => {
     const changed = { maxVms: originalQuota!.maxVms + 1, maxNetworks: originalQuota!.maxNetworks }
     const reply = await call('admin', 'PATCH', `/v1/tenants/${tenantId}/quota`, changed)
@@ -52,23 +52,23 @@ test.describe.serial('tenant', () => {
     expect((await get('tenant', '/v1/tenant')).maxVms).toBe(originalQuota!.maxVms)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs UpdateQuotaValidator (GreaterThanOrEqualTo(0))
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantQuotaEndpoint.cs UpdateQuotaValidator (GreaterThanOrEqualTo(0))
   test('TEN-03 a negative cap is 400 VALIDATION_ERROR and changes nothing', async () => {
     expectError(await call('admin', 'PATCH', `/v1/tenants/${tenantId}/quota`, { maxVms: -1, maxNetworks: originalQuota!.maxNetworks }),
       400, 'VALIDATION_ERROR')
     expect((await get('tenant', '/v1/tenant')).maxVms).toBe(originalQuota!.maxVms)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantStatusEndpoint.cs (Configure: Patch("v1/tenants/{tenantId:guid}/status");
-  // HandleAsync: SendNoContentAsync) · OpenViCloud/titan:docs/features/tenant/design.md#tenant-status-repeats
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantStatusEndpoint.cs (Configure: Patch("v1/tenants/{tenantId:guid}/status");
+  // HandleAsync: SendNoContentAsync) · OpenViCloud/titan-ops:docs/features/tenant/design.md#tenant-status-repeats
   test('TEN-04 Active on an Active tenant is 204 and it stays Active', async () => {
     expectStatus(await call('admin', 'PATCH', `/v1/tenants/${tenantId}/status`, { status: 'Active' }), 204)
     expect((await get('tenant', '/v1/tenant')).status).toBe('Active')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Legal/GetLegalDocumentEndpoint.cs (Configure: Get("v1/legal/document"), AllowAnonymous),
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Legal/GetConsentStatusEndpoint.cs (Configure: Get("v1/legal/consent-status"));
-  // OpenViCloud/control-plane:Titan.Application/Queries/Platform/Legal/Contracts/ConsentStatusQueryResult.cs (ConsentStatusQueryResult)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Legal/GetLegalDocumentEndpoint.cs (Configure: Get("v1/legal/document"), AllowAnonymous),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Legal/GetConsentStatusEndpoint.cs (Configure: Get("v1/legal/consent-status"));
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Platform/Legal/Contracts/ConsentStatusQueryResult.cs (ConsentStatusQueryResult)
   test('TEN-05 the current terms are readable and consent status names that version', async () => {
     const document = await get('anonymous', '/v1/legal/document')
     log(`TEN-05 document key=${document.key} version=${document.version}`)
@@ -79,8 +79,8 @@ test.describe.serial('tenant', () => {
     expect(status.documentVersion).toBe(document.version)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Platform/Legal/GetLegalDocumentQueryHandler.cs (GetLegalDocumentQueryHandler) ·
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Legal/GetLegalDocumentEndpoint.cs (GetLegalDocumentEndpoint) (OpenViCloud/titan:docs/features/legal/design.md#legal-endpoints)
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Platform/Legal/GetLegalDocumentQueryHandler.cs (GetLegalDocumentQueryHandler) ·
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Legal/GetLegalDocumentEndpoint.cs (GetLegalDocumentEndpoint) (OpenViCloud/titan-ops:docs/features/legal/design.md#legal-endpoints)
   test('TEN-07 the terms come in English by default and in Vietnamese on request, under one version', async () => {
     const english = await get('anonymous', '/v1/legal/document')
     const vietnamese = await get('anonymous', '/v1/legal/document?lang=vi')
@@ -95,7 +95,7 @@ test.describe.serial('tenant', () => {
     expect(vietnamese.content).not.toBe(english.content)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Tenant/ListMembersEndpoint.cs (Configure: Get("v1/tenant/members"))
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/ListMembersEndpoint.cs (Configure: Get("v1/tenant/members"))
   test('TEN-06 the tenant lists its members', async () => {
     const members = await get('tenant', '/v1/tenant/members') as any[]
     log(`TEN-06 members: ${members.length}`)

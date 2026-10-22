@@ -29,8 +29,8 @@ test.describe.serial('admin', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Admin/ListAdminNetworksEndpoint.cs (Configure, Roles("platform-admin")),
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Admin/ListAdminVmsEndpoint.cs (Configure, Roles("platform-admin")) — every tenant
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Admin/ListAdminNetworksEndpoint.cs (Configure, Roles("platform-admin")),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Admin/ListAdminVmsEndpoint.cs (Configure, Roles("platform-admin")) — every tenant
   test('ADM-04 the admin lists hold beta-user resources, filtered by tenant', async () => {
     const tenant = await get('tenant', '/v1/tenant')
     const network = await runNetwork()
@@ -44,8 +44,8 @@ test.describe.serial('admin', () => {
     expect(vms.some((v) => v.id === vmId && v.tenantId === tenant.id)).toBe(true)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Admin/Vm/DeleteAdminVmCommandHandler.cs HandleAsync (audit action vm.delete.cross_tenant);
-  // OpenViCloud/titan:docs/features/activity/design.md#request-and-outcome-names — admin delete records no request in the tenant feed
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Admin/Vm/DeleteAdminVmCommandHandler.cs HandleAsync (audit action vm.delete.cross_tenant);
+  // OpenViCloud/titan-ops:docs/features/activity/design.md#request-and-outcome-names — admin delete records no request in the tenant feed
   test('ADM-03 admin deletes a tenant VM: 204, an audit row, no delete request in the tenant feed', async () => {
     const reply = await call('admin', 'DELETE', `/v1/admin/vms/${vmId}`)
     expectStatus(reply, 204)
@@ -57,7 +57,7 @@ test.describe.serial('admin', () => {
     expect(countOf(actions, 'vm.deleted')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Admin/ListAuditLogEndpoint.cs (Configure: Get("v1/admin/audit-log"); HandleAsync: the limit query)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Admin/ListAuditLogEndpoint.cs (Configure: Get("v1/admin/audit-log"); HandleAsync: the limit query)
   test('ADM-07 the audit log carries the cross-tenant delete', async () => {
     const rows = await get('admin', '/v1/admin/audit-log?limit=50') as any[]
     const row = rows.find((r) => r.resourceId === vmId)
@@ -66,8 +66,8 @@ test.describe.serial('admin', () => {
     expect(row.ownerTenantId).toBe((await get('tenant', '/v1/tenant')).id)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Admin/GetProviderClientCertificateEndpoint.cs (Configure, Roles("platform-admin")),
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Admin/TestAdminClusterEndpoint.cs (Configure: Post("v1/admin/clusters/test")) — Titan's certificate, and a live test of the zone's saved connection
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Admin/GetProviderClientCertificateEndpoint.cs (Configure, Roles("platform-admin")),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Admin/TestAdminClusterEndpoint.cs (Configure: Post("v1/admin/clusters/test")) — Titan's certificate, and a live test of the zone's saved connection
   test('ADM-05 Titan client certificate is readable and the zone cluster tests ok', async () => {
     const certificate = await get('admin', '/v1/admin/clusters/client-certificate')
     expect(certificate.certificatePem).toContain('BEGIN CERTIFICATE')
@@ -82,7 +82,7 @@ test.describe.serial('admin', () => {
     expect(JSON.parse(result.text).ok).toBe(true)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Catalog/UpdateVmOfferingPriceEndpoint.cs (Configure: Patch("v1/admin/vm-offerings/{offeringId}/price");
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/UpdateVmOfferingPriceEndpoint.cs (Configure: Patch("v1/admin/vm-offerings/{offeringId}/price");
   // HandleAsync: SendNoContentAsync) — L-x on staging
   test('ADM-06 admin changes a tier price: 204, the anonymous list shows it, then it is put back', async () => {
     const { otherTier } = await envOf()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Checks that every UI case of the regression suite leaves a screenshot, the evidence §Evidence of
-OpenViCloud/titan:.claude/commands/release/regression.md asks for.
+OpenViCloud/titan-ops:.claude/commands/release/regression.md asks for.
 
 A UI case is a `test('<ID> …', …)` of a spec whose body drives a browser: a `{ page }`, `{ browser }` or `{ context }`
 fixture, or a call to pageOf(, newPage( or newContext(. Its ID is the first ID of the title.

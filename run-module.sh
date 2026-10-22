@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One regression module in the cluster, steps 1-5 of §Runner in OpenViCloud/titan:.claude/commands/release/regression.md:
+# One regression module in the cluster, steps 1-5 of §Runner in OpenViCloud/titan-ops:.claude/commands/release/regression.md:
 # load lib + module into ConfigMap titan-regression-specs, create a job from CronJob titan-regression, wait for
 # /work/results/.done (or the pod ending), copy the results, compare sha256 file by file, delete the job.
 # The runner's output (runner.log, results/, sha lists) goes to <work dir>, which is not committed: the
@@ -59,7 +59,7 @@ app_log_filter() {
 save_app_logs() {
   local app="$1" file="$logs_dir/$1.log" note=""
   if [ "$app" = "control-plane" ]; then note=" | python3 trim-cp-log.py"; fi
-  # Header line of §Evidence in OpenViCloud/titan:.claude/commands/release/regression.md (check-evidence.py HEADER).
+  # Header line of §Evidence in OpenViCloud/titan-ops:.claude/commands/release/regression.md (OpenViCloud/titan-ops:scripts/check-evidence.py HEADER).
   echo "# kubectl logs -n $app_ns <each pod of app=$app> --since-time=$since (+ --previous when restarted)$note · $(k config view --minify -o 'jsonpath={.clusters[0].cluster.server}') · $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$file"
   k -n "$app_ns" get pods -l "app=$app" -o json \
     | python3 -c 'import sys,json

@@ -4,9 +4,9 @@ import { closeSessions, useBrowser } from './auth'
 import { bodyOf, call, expectStatus, get, log, newKey, pollUntil, startLog } from './api'
 import { runNetwork } from './fixtures'
 
-// Cases CON-10, CON-11 of plan.md. The spec the host serves (OpenViCloud/control-plane:Titan.Tests/Api/OpenApiSpecTests.cs SpecUrl)
-// is the same document as OpenViCloud/control-plane:api/openapi-v1.json, committed in that repository
-// (OpenViCloud/control-plane:Titan.Tests/Api/OpenApiSpecTests.cs OpenApiSpec_MatchesCommittedBaseline pins the two equal), so reading it from
+// Cases CON-10, CON-11 of plan.md. The spec the host serves (OpenViCloud/titan-control-plane:Titan.Tests/Api/OpenApiSpecTests.cs SpecUrl)
+// is the same document as OpenViCloud/titan-control-plane:api/openapi-v1.json, committed in that repository
+// (OpenViCloud/titan-control-plane:Titan.Tests/Api/OpenApiSpecTests.cs OpenApiSpec_MatchesCommittedBaseline pins the two equal), so reading it from
 // the running env is reading the contract.
 //
 // This module runs while the shared run network (rg-net-<run>) is still alive: network-lifecycle (a later module)
@@ -15,7 +15,7 @@ import { runNetwork } from './fixtures'
 //
 // VM/volume/snapshot/load-balancer creates are expensive (provider work, minutes to observe); this spec does not
 // create any of them. Their declared codes are asserted against the documented expectation
-// (OpenViCloud/titan:docs/features/public-api/design.md#success-codes) and the codes vm.spec.ts/volume.spec.ts/vm-snapshot.spec.ts/
+// (OpenViCloud/titan-ops:docs/features/public-api/design.md#success-codes) and the codes vm.spec.ts/volume.spec.ts/vm-snapshot.spec.ts/
 // load-balancer.spec.ts already assert the live API returns for those routes.
 
 type Spec = { paths: Record<string, Record<string, any>>, components: { schemas: Record<string, any> } }
@@ -50,7 +50,7 @@ function operationOf(spec: Spec, method: string, concretePath: string): any {
 }
 
 // Asserts the spec declares exactly one 2xx response for this call, equal to the status actually returned, and
-// that a body is declared exactly when one was sent (OpenViCloud/titan:docs/features/public-api/design.md#success-codes).
+// that a body is declared exactly when one was sent (OpenViCloud/titan-ops:docs/features/public-api/design.md#success-codes).
 async function assertDeclaredCode(label: string, method: string, path: string, status: number, hasBody: boolean): Promise<void> {
   const spec = await fetchSpec()
   const op = operationOf(spec, method, path)
@@ -63,7 +63,7 @@ async function assertDeclaredCode(label: string, method: string, path: string, s
 }
 
 // Resolves a state/status field's schema to the list of allowed string values, unwrapping nullable `allOf` wrappers
-// the way OpenViCloud/control-plane:Titan.Tests/Api/StateEnumSpecTests.cs StateField_IsTheDomainEnum does (oapi-codegen turns a nullable $ref into allOf + nullable).
+// the way OpenViCloud/titan-control-plane:Titan.Tests/Api/StateEnumSpecTests.cs StateField_IsTheDomainEnum does (oapi-codegen turns a nullable $ref into allOf + nullable).
 function enumOf(spec: Spec, schemaName: string, field: string): { values: string[], nullable: boolean } {
   const property = spec.components.schemas[schemaName]?.properties?.[field]
   expect(property, `${schemaName}.${field} must exist in the spec`).toBeDefined()
@@ -113,7 +113,7 @@ test.describe.serial('contract-spec', () => {
   let sshKeyId = ''
 
   // A rule whose create is still waiting refuses delete with 422 FIREWALL_RULE_NOT_READY
-  // (OpenViCloud/control-plane:Titan.Domain/Aggregates/Networking/FirewallRule/FirewallRule.cs RequestDelete) — wait until it is at rest.
+  // (OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Networking/FirewallRule/FirewallRule.cs RequestDelete) — wait until it is at rest.
   async function ruleSettled(id: string): Promise<any> {
     const read = async () => {
       const rows = await get('tenant', `/v1/tenant/networks/${networkId}/firewall-rules`) as any[]
@@ -152,8 +152,8 @@ test.describe.serial('contract-spec', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Host/Program.cs UseSwaggerGen() — unconditional, every env serves the same document
-  // OpenViCloud/control-plane:Titan.Tests/Api/OpenApiSpecTests.cs OpenApiSpec_MatchesCommittedBaseline asserts equals OpenViCloud/control-plane:api/openapi-v1.json.
+  // OpenViCloud/titan-control-plane:Titan.Host/Program.cs UseSwaggerGen() — unconditional, every env serves the same document
+  // OpenViCloud/titan-control-plane:Titan.Tests/Api/OpenApiSpecTests.cs OpenApiSpec_MatchesCommittedBaseline asserts equals OpenViCloud/titan-control-plane:api/openapi-v1.json.
   test('CON-10 declared success codes match what cheap routes actually return', async () => {
     // create rule: 201 with an id-only body (CreateFirewallRuleCommandResult)
     const ruleReply = await call('tenant', 'POST', `/v1/tenant/networks/${networkId}/firewall-rules`,
@@ -169,7 +169,7 @@ test.describe.serial('contract-spec', () => {
     sshKeyId = bodyOf(keyReply).id as string
     await assertDeclaredCode('CON-10 ssh key create', 'POST', '/v1/tenant/ssh-keys', 201, true)
 
-    // rename (PUT/PATCH): 204, no body — OpenViCloud/titan:docs/architecture/http-contract.md#commands-return-no-data
+    // rename (PUT/PATCH): 204, no body — OpenViCloud/titan-ops:docs/architecture/http-contract.md#commands-return-no-data
     renamedTo = `${networkName}-rg`
     const renameReply = await call('tenant', 'PATCH', `/v1/tenant/networks/${networkId}`, { name: renamedTo })
     expectStatus(renameReply, 204)
@@ -185,7 +185,7 @@ test.describe.serial('contract-spec', () => {
     await assertDeclaredCode('CON-10 network get', 'GET', `/v1/tenant/networks/${networkId}`, 200, true)
 
     // network create: 202 WITH a body (id-only) — unlike a delete or stop/start, a create answers the id
-    // (OpenViCloud/titan:docs/architecture/http-contract.md#create-returns-id), so 202 does not always mean "no body".
+    // (OpenViCloud/titan-ops:docs/architecture/http-contract.md#create-returns-id), so 202 does not always mean "no body".
     await assertDeclaredCode('CON-10 network create (not exercised here)', 'POST', '/v1/tenant/networks', 202, true)
 
     // delete rule: 204, no body
@@ -206,7 +206,7 @@ test.describe.serial('contract-spec', () => {
     await assertDeclaredCode('CON-10 network delete (not exercised here)', 'DELETE', '/v1/tenant/networks/{networkId}', 202, false)
   })
 
-  // OpenViCloud/titan:docs/features/public-api/design.md#state-enums — every currentState/desiredState/currentExistence/
+  // OpenViCloud/titan-ops:docs/features/public-api/design.md#state-enums — every currentState/desiredState/currentExistence/
   // desiredExistence/transition (and tenant/invoice/topup status) is null or a value the spec's enum declares for
   // that field. Lists may be empty elsewhere in the run, but the run network + a fresh rule make the network and
   // firewall-rule checks non-empty here.

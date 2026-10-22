@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-Bộ spec regression **bền** của OpenViCloud: mọi hành vi còn đúng ở release sau có một case trong [`plan.md`](plan.md) và một spec ở đây. Quy trình (ai thêm case, ai viết spec, chạy thế nào) sống ở repo [`OpenViCloud/titan`](https://github.com/OpenViCloud/titan): `iteration:enhance-regression-plan` thêm case của story vào `plan.md` sau mỗi lần deploy dev; [`release:regression`](https://github.com/OpenViCloud/titan/blob/main/.claude/commands/release/regression.md) viết spec cho case chưa có spec rồi chạy **hết** repo này trên staging, ở sha `release-plan.md` ghim. Bảng module và thứ tự: [README](README.md).
+Bộ spec regression **bền** của OpenViCloud: mọi hành vi còn đúng ở release sau có một case trong [`plan.md`](plan.md) và một spec ở đây. Quy trình (ai thêm case, ai viết spec, chạy thế nào) sống ở repo [`OpenViCloud/titan-ops`](https://github.com/OpenViCloud/titan-ops): `iteration:enhance-regression-plan` thêm case của story vào `plan.md` sau mỗi lần deploy dev; [`release:regression`](https://github.com/OpenViCloud/titan-ops/blob/main/.claude/commands/release/regression.md) viết spec cho case chưa có spec rồi chạy **hết** repo này trên staging, ở sha `release-plan.md` ghim. Bảng module và thứ tự: [README](README.md).
 
-Repo này không có hệ thống nào để chạy: spec chạy bằng runner `titan-regression` trong cụm (manifest ở `OpenViCloud/titan:gitops/regression-runner/`), không trên máy agent. CI chỉ chạy test của tooling (`selftest/`, `test_*.py`).
+Repo này không có hệ thống nào để chạy: spec chạy bằng runner `titan-regression` trong cụm (manifest ở `OpenViCloud/titan-ops:gitops/regression-runner/`), không trên máy agent. CI chỉ chạy test của tooling (`selftest/`, `test_*.py`).
 
 ## Cây thư mục
 
@@ -35,14 +35,14 @@ Repo này không có hệ thống nào để chạy: spec chạy bằng runner `
 
 ## Viết spec
 
-- Spec của case nằm ở `<module>/`, **ID trong tên test** (`test('VM-03 stop từ Running', …)`), nguồn của kỳ vọng ở comment đầu test — đọc lại code ở chỗ cột **Nguồn** của `plan.md` trỏ tới. Luật ghi nguồn ở đầu `plan.md` (nguồn duy nhất của luật này): file trong repo này ghi `file:line`; repo khác ghi `<repo>:<path>` kèm tên hàm/type/method/test, **không** số dòng (trừ ref ghim một commit); doc của titan trong `plan.md` là link đầy đủ kèm `#anchor`, trong comment spec `OpenViCloud/titan:docs/…#anchor`. Ref cũ còn số dòng là rủi ro chấp nhận, sửa khi chạm. Kỳ vọng không có nguồn là đoán.
+- Spec của case nằm ở `<module>/`, **ID trong tên test** (`test('VM-03 stop từ Running', …)`), nguồn của kỳ vọng ở comment đầu test — đọc lại code ở chỗ cột **Nguồn** của `plan.md` trỏ tới. Luật ghi nguồn ở đầu `plan.md` (nguồn duy nhất của luật này): file trong repo này ghi `file:line`; repo khác ghi `<repo>:<path>` kèm tên hàm/type/method/test, **không** số dòng (trừ ref ghim một commit), mỗi ref tự mang repo (và sha nếu ghim; không khai repo một lần cho cả mục hay cả file, không viết tắt `:<line>` nối vào ref trước); doc của titan-ops trong `plan.md` là link đầy đủ kèm `#anchor`, trong comment spec `OpenViCloud/titan-ops:docs/…#anchor`. Ref cũ còn số dòng là rủi ro chấp nhận, sửa khi chạm. Kỳ vọng không có nguồn là đoán.
 - Mọi case của module có spec chạy xanh ⇒ cột **Spec** của README = `yes`. Spec mới và dòng README vào cùng PR.
 - Runner nạp **phẳng** (`/specs/*.ts`): spec import helper bằng `./auth`, không `../lib/auth`. Tên file không trùng giữa `lib/` và module.
 - Mọi tài nguyên test mang tên `rg-<loại>-<lượt>` (`<lượt>` = thời điểm job bắt đầu, base36); network của lượt là `rg-net-<lượt>`, module sau tìm nó theo tiền tố. Module nào tạo thì `finally` của module đó xoá — trừ network của lượt, do `network-lifecycle` xoá; module `cleanup` quét lại.
 - `beta-user` có `MaxNetworks = 1` ⇒ mọi module cần network dùng chung **một** network của lượt (`fixtures.ts`); network sống từ trước của tài khoản test làm `NETWORK_QUOTA_EXCEEDED` ⇒ `smoke` báo đỏ ngay, không để module sau đỏ lan.
 - Mỗi test lái trình duyệt (UI case) chụp ≥ 1 ảnh `${RESULTS}/<ID>-<gì>.png` ở điểm an toàn (form đăng nhập rỗng hoặc đã qua, không token trên màn); release commit ảnh làm evidence — §Evidence (hàng **Ảnh UI**) của `release:regression`.
 - Tiền chỉ đụng `admin-test` hoặc hoá đơn seed của chính lượt đó. Ví `beta-user` là dữ liệu sống lâu — đọc, không ghi.
-- Comment trong spec theo [code-comments](https://github.com/OpenViCloud/titan/blob/main/docs/architecture/code-comments.md#what-a-comment-holds): không mã iteration/story, không trỏ `docs/iterations/` của titan.
+- Comment trong spec theo [code-comments](https://github.com/OpenViCloud/titan-ops/blob/main/docs/architecture/code-comments.md#what-a-comment-holds): không mã iteration/story, không trỏ `docs/iterations/` của titan-ops.
 - Commit và PR chỉ nêu người làm: không `Co-Authored-By: Claude …`, không dòng nói code viết bằng AI (`.claude/settings.json` tắt attribution).
 
 ## Giả định khi chạy trên staging (dữ liệu sống lâu)

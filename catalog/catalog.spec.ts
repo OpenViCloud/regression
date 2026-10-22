@@ -16,7 +16,7 @@ test.describe.serial('catalog', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Catalog/VmOffering/Contracts/VmOfferingQueryResult.cs (VmOfferingQueryResult)
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Catalog/VmOffering/Contracts/VmOfferingQueryResult.cs (VmOfferingQueryResult)
   test('CAT-01 vm offerings carry sizing and a price', async () => {
     const offerings = await get('anonymous', '/v1/vm-offerings') as any[]
     log(`CAT-01 tiers ${offerings.map((o) => `${o.id}:${o.vcpu}vcpu/${o.memoryMb}MB/${o.pricePerHour}`).join(' ')}`)
@@ -29,7 +29,7 @@ test.describe.serial('catalog', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Catalog/VmTemplate/Contracts/TemplateQueryResult.cs (TemplateQueryResult)
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Catalog/VmTemplate/Contracts/TemplateQueryResult.cs (TemplateQueryResult)
   test('CAT-02 templates of a zone carry no sizing and no offering', async () => {
     const { zoneId } = await envOf()
     const templates = await get('tenant', `/v1/templates?zoneId=${zoneId}`) as any[]
@@ -38,7 +38,7 @@ test.describe.serial('catalog', () => {
     for (const template of templates) {
       expect(Object.keys(template).sort()).toEqual(['description', 'diskGb', 'id', 'name', 'os'])
     }
-    // Every template the customer sees for the zone Exists there (OpenViCloud/titan:docs/features/catalog/design.md#template-per-zone).
+    // Every template the customer sees for the zone Exists there (OpenViCloud/titan-ops:docs/features/catalog/design.md#template-per-zone).
     const admin = await get('admin', '/v1/admin/templates') as any[]
     for (const template of templates) {
       const row = admin.find((a) => a.id === template.id)
@@ -47,8 +47,8 @@ test.describe.serial('catalog', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Catalog/VmTemplate/ListTemplatesQueryHandler.cs HandleAsync (customers: IsListed only) ·
-  // OpenViCloud/control-plane:Titan.Application/Queries/Catalog/VmTemplate/Contracts/AdminTemplateQueryResult.cs AdminTemplateQueryResult.Listed (admin: every template, flagged)
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Catalog/VmTemplate/ListTemplatesQueryHandler.cs HandleAsync (customers: IsListed only) ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Catalog/VmTemplate/Contracts/AdminTemplateQueryResult.cs AdminTemplateQueryResult.Listed (admin: every template, flagged)
   test('CAT-10 an unlisted template reaches no customer list; admin sees it flagged', async () => {
     const admin = await get('admin', '/v1/admin/templates') as any[]
     const unlisted = admin.filter((a) => a.listed === false).map((a) => a.id)
@@ -66,12 +66,12 @@ test.describe.serial('catalog', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Options/ZoneOptions.cs Require (ZONE_NOT_FOUND)
+  // OpenViCloud/titan-control-plane:Titan.Application/Options/ZoneOptions.cs Require (ZONE_NOT_FOUND)
   test('CAT-03 an unknown zone is 404 ZONE_NOT_FOUND', async () => {
     expectError(await call('tenant', 'GET', '/v1/templates?zoneId=rg-no-such-zone'), 404, 'ZONE_NOT_FOUND')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Catalog/VmTemplate/ListTemplatesQueryHandler.cs HandleAsync (ListSyncedInAnyZoneAsync) — no zone ⇒ synced in any zone
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Catalog/VmTemplate/ListTemplatesQueryHandler.cs HandleAsync (ListSyncedInAnyZoneAsync) — no zone ⇒ synced in any zone
   test('CAT-04 without a zone, every template listed Exists in at least one zone', async () => {
     const templates = await get('tenant', '/v1/templates') as any[]
     const admin = await get('admin', '/v1/admin/templates') as any[]
@@ -82,8 +82,8 @@ test.describe.serial('catalog', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Catalog/ListClustersEndpoint.cs (Configure: Get("v1/zones/{zoneId}/clusters"), AllowAnonymous),
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Catalog/ListOsImagesEndpoint.cs (Configure: Get("v1/os-images"), AllowAnonymous)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/ListClustersEndpoint.cs (Configure: Get("v1/zones/{zoneId}/clusters"), AllowAnonymous),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/ListOsImagesEndpoint.cs (Configure: Get("v1/os-images"), AllowAnonymous)
   test('CAT-05 clusters and OS images are read live from Incus', async () => {
     const { zoneId } = await envOf()
     const clusters = await get('anonymous', `/v1/zones/${zoneId}/clusters`) as any[]
@@ -107,9 +107,9 @@ test.describe.serial('catalog', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Catalog/SyncTemplatesEndpoint.cs HandleAsync (202);
-  // OpenViCloud/control-plane:Titan.Application/Commands/Catalog/VmTemplate/SyncTemplatesCommandHandler.cs HandleAsync (NeedsASyncRequest, RequestSyncIn)
-  // a template with no image for the cluster architecture gives up (OpenViCloud/titan:docs/features/catalog/design.md#template-architecture)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/SyncTemplatesEndpoint.cs HandleAsync (202);
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Catalog/VmTemplate/SyncTemplatesCommandHandler.cs HandleAsync (NeedsASyncRequest, RequestSyncIn)
+  // a template with no image for the cluster architecture gives up (OpenViCloud/titan-ops:docs/features/catalog/design.md#template-architecture)
   test('CAT-06 sync: every template ends Exists or gives up in the zone, none stays Syncing', async () => {
     const { zoneId } = await envOf()
     const reply = await call('admin', 'POST', '/v1/admin/templates/sync')
@@ -129,7 +129,7 @@ test.describe.serial('catalog', () => {
     expect(settled.some((r) => r.zones.find((z: any) => z.zoneId === zoneId).currentExistence === 'Exists')).toBe(true)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Catalog/VmTemplate/SyncTemplatesCommandHandler.cs HandleAsync (NeedsASyncRequest) — a zone whose cluster has the alias asks for nothing
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Catalog/VmTemplate/SyncTemplatesCommandHandler.cs HandleAsync (NeedsASyncRequest) — a zone whose cluster has the alias asks for nothing
   test('CAT-07 a second sync leaves the templates that Exist as they are', async () => {
     const { zoneId } = await envOf()
     const before = (await get('admin', '/v1/admin/templates') as any[])
@@ -144,7 +144,7 @@ test.describe.serial('catalog', () => {
     }
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Queries/Catalog/VmTemplate/Contracts/AdminTemplateQueryResult.cs (AdminTemplateQueryResult)
+  // OpenViCloud/titan-control-plane:Titan.Application/Queries/Catalog/VmTemplate/Contracts/AdminTemplateQueryResult.cs (AdminTemplateQueryResult)
   test('CAT-08 the admin template list carries vmOfferingId and existence per zone', async () => {
     const rows = await get('admin', '/v1/admin/templates') as any[]
     const tiers = (await get('anonymous', '/v1/vm-offerings') as any[]).map((o) => o.id)

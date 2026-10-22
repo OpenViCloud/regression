@@ -7,7 +7,7 @@ import { RUN, activityOf, countOf, createVm, deleteVmAndWait, envOf, getVm, runN
 
 // Cases VM-01..19, VM-21 and VM-22 of plan.md, plus ACT-01/ACT-03 for VMs. VM-14 is NOT COVERED, VM-20 reads
 // the Incus host. Create checks run in this order
-// (OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync): quota inside Vm.Create, zone,
+// (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync): quota inside Vm.Create, zone,
 // name, network, offering, template — so the error cases run below the quota.
 test.describe.serial('vm', () => {
   test.describe.configure({ timeout: 15 * 60_000 })
@@ -49,7 +49,7 @@ test.describe.serial('vm', () => {
     await cleanUp(steps)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/CreateVmValidator.cs CreateVmValidator (Name MaximumLength(64))
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/CreateVmValidator.cs CreateVmValidator (Name MaximumLength(64))
   test('VM-09 a 65-character name is 400 VALIDATION_ERROR', async () => {
     const { zoneId, templateId, smallTier } = await envOf()
     expectError(await call('tenant', 'POST', '/v1/tenant/vms',
@@ -57,8 +57,8 @@ test.describe.serial('vm', () => {
       400, 'VALIDATION_ERROR')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync: zones.Require
-  // (OpenViCloud/control-plane:Titan.Application/Options/ZoneOptions.cs Require), VM_OFFERING_NOT_FOUND, TEMPLATE_NOT_FOUND
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync: zones.Require
+  // (OpenViCloud/titan-control-plane:Titan.Application/Options/ZoneOptions.cs Require), VM_OFFERING_NOT_FOUND, TEMPLATE_NOT_FOUND
   test('VM-11 unknown offering, template, zone are 404 with their codes', async () => {
     const { zoneId, templateId, smallTier } = await envOf()
     const base = { name: `rg-vmx-${RUN}`, networkId, vmOfferingId: smallTier, templateId, zoneId, diskSizeGb: null }
@@ -67,7 +67,7 @@ test.describe.serial('vm', () => {
     expectError(await call('tenant', 'POST', '/v1/tenant/vms', { ...base, zoneId: 'rg-no-such-zone' }, newKey()), 404, 'ZONE_NOT_FOUND')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync (!template.IsListed ⇒ TEMPLATE_NOT_FOUND) — not listed ⇒ as if it did not exist
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync (!template.IsListed ⇒ TEMPLATE_NOT_FOUND) — not listed ⇒ as if it did not exist
   test('VM-22 a template customers are not offered is 404 TEMPLATE_NOT_FOUND, and no VM is made', async () => {
     const admin = await get('admin', '/v1/admin/templates') as any[]
     const unlisted = admin.find((a) => a.listed === false)
@@ -81,7 +81,7 @@ test.describe.serial('vm', () => {
     expect(vms.filter((v) => v.name === name)).toEqual([])
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Networking/Network/Network.cs BeginVmDeployment (NETWORK_ZONE_MISMATCH)
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Networking/Network/Network.cs BeginVmDeployment (NETWORK_ZONE_MISMATCH)
   test('VM-12 a VM in another zone than its network is 422 NETWORK_ZONE_MISMATCH', async () => {
     const zones = await get('anonymous', '/v1/zones') as Array<{ id: string }>
     const usable: string[] = []
@@ -100,8 +100,8 @@ test.describe.serial('vm', () => {
       422, 'NETWORK_ZONE_MISMATCH')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/CreateVmEndpoint.cs HandleAsync; current comes from the reconciler:
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (vm.MarkObserved)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/CreateVmEndpoint.cs HandleAsync; current comes from the reconciler:
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (vm.MarkObserved)
   test('VM-01 a VM of the smallest tier is 202 {vmId}, then Running or Ready with an address', async () => {
     const { smallTier } = await envOf()
     vmA = await createVm(nameA, smallTier, networkId)
@@ -115,14 +115,14 @@ test.describe.serial('vm', () => {
     expect(countOf(actions, 'vm.created')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync (ExistsByNameAsync ⇒ VM_NAME_TAKEN)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync (ExistsByNameAsync ⇒ VM_NAME_TAKEN)
   test('VM-10 a second VM with a live name is 409 VM_NAME_TAKEN', async () => {
     const { smallTier, zoneId, templateId } = await envOf()
     expectError(await call('tenant', 'POST', '/v1/tenant/vms',
       { name: nameA, networkId, vmOfferingId: smallTier, templateId, zoneId, diskSizeGb: null }, newKey()), 409, 'VM_NAME_TAKEN')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync (offeringRepo.FindByIdAsync) — the tier asked for is resolved and kept on the VM
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/CreateVmCommandHandler.cs HandleAsync (offeringRepo.FindByIdAsync) — the tier asked for is resolved and kept on the VM
   test('VM-02 a VM of the next tier runs too', async () => {
     const { otherTier } = await envOf()
     vmB = await createVm(nameB, otherTier, networkId)
@@ -132,8 +132,8 @@ test.describe.serial('vm', () => {
     expect(vm.vmOfferingId).toBe(otherTier)
   })
 
-  // Public IPv6 is the network's (OpenViCloud/titan:docs/features/network/design.md#ipv6-public): the VM has no switch, and on the run
-  // network (no public IPv6) the reconciler reports no global IPv6 — OpenViCloud/incus-worker:resource/vm/reconcile.go
+  // Public IPv6 is the network's (OpenViCloud/titan-ops:docs/features/network/design.md#ipv6-public): the VM has no switch, and on the run
+  // network (no public IPv6) the reconciler reports no global IPv6 — OpenViCloud/titan-incus-worker:resource/vm/reconcile.go
   test('VM-13 a VM on a network without public IPv6 has no IPv6 switch and no public IPv6 address', async () => {
     const vm = await get('tenant', `/v1/tenant/vms/${vmA}`)
     expect(runs(vm)).toBe(true)
@@ -141,7 +141,7 @@ test.describe.serial('vm', () => {
     expect(vm.publicIpv6Address).toBeNull()
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestStop · OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/StopVmEndpoint.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestStop · OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/StopVmEndpoint.cs HandleAsync
   test('VM-03 stop from Running is 202, then Stopped with desired Stopped', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmA}/stop`), 202)
     const vm = await waitVm('VM-03', vmA, (v) => v.currentState === 'Stopped' && v.transition === null)
@@ -151,7 +151,7 @@ test.describe.serial('vm', () => {
     expect(countOf(actions, 'vm.stopped')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/StopVmCommandHandler.cs HandleAsync (alreadyStopped) — already stopped answers like the first request
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/StopVmCommandHandler.cs HandleAsync (alreadyStopped) — already stopped answers like the first request
   test('VM-04 stop again on a Stopped VM is 202 and records nothing (ACT-03)', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmA}/stop`), 202)
     const vm = await getVm(vmA)
@@ -159,14 +159,14 @@ test.describe.serial('vm', () => {
     expect(countOf(await activityOf(nameA), 'vm.stop_requested')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestStart · OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/StartVmEndpoint.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestStart · OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/StartVmEndpoint.cs HandleAsync
   test('VM-05 start from Stopped is 202, then Running or Ready', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmA}/start`), 202)
     await waitVm('VM-05', vmA, (v) => runs(v) && v.transition === null)
     expect(countOf(await activityOf(nameA), 'vm.started')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/StartVmCommandHandler.cs HandleAsync (alreadyRunning) — already running answers 202
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/StartVmCommandHandler.cs HandleAsync (alreadyRunning) — already running answers 202
   test('VM-06 start on a running VM is 202 and changes nothing', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmA}/start`), 202)
     const vm = await getVm(vmA)
@@ -174,8 +174,8 @@ test.describe.serial('vm', () => {
     expect(countOf(await activityOf(nameA), 'vm.start_requested')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/StopVmCommandHandler.cs HandleAsync (stopIsWaiting: a stop repeated while it waits is
-  // sent again under its key) · OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestStart (start while another request waits)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/StopVmCommandHandler.cs HandleAsync (stopIsWaiting: a stop repeated while it waits is
+  // sent again under its key) · OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestStart (start while another request waits)
   test('VM-07 start while a stop waits is 422 VM_INVALID_STATUS', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmA}/stop`), 202)
     // VM-04, the other half: a stop repeated while it waits is 202 and records no second request.
@@ -185,8 +185,8 @@ test.describe.serial('vm', () => {
     await waitVm('VM-07 stop lands', vmA, (v) => v.currentState === 'Stopped' && v.transition === null)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/RenameVmCommandHandler.cs HandleAsync (alreadyNamedSo) ·
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/UpdateVmEndpoint.cs HandleAsync
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/RenameVmCommandHandler.cs HandleAsync (alreadyNamedSo) ·
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/UpdateVmEndpoint.cs HandleAsync
   test('VM-08 rename is 204; the same name again is a 204 no-op', async () => {
     const reply = await call('tenant', 'PATCH', `/v1/tenant/vms/${vmA}`, { name: renamed })
     expectStatus(reply, 204)
@@ -195,14 +195,14 @@ test.describe.serial('vm', () => {
     expectStatus(await call('tenant', 'PATCH', `/v1/tenant/vms/${vmA}`, { name: renamed }), 204)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestDelete (RequestDelete takes over a waiting stop)
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs RequestDelete (RequestDelete takes over a waiting stop)
   test('VM-17 delete while a stop waits wins: 202, then Deleted', async () => {
     expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmB}/stop`), 202)
     expectStatus(await call('tenant', 'DELETE', `/v1/tenant/vms/${vmB}`), 202)
     await waitVm('VM-17', vmB, (v) => v.currentExistence === 'Deleted')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VmRepository.cs CountActiveByTenantAsync — counted: desired Exists and (Exists, or NotCreated with a request waiting)
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs CountActiveByTenantAsync — counted: desired Exists and (Exists, or NotCreated with a request waiting)
   test('VM-15 a create that gave up does not count: one more VM fits, the next is 422 VM_QUOTA_EXCEEDED', async () => {
     const vms = await get('tenant', '/v1/tenant/vms') as any[]
     const counted = vms.filter((v) => v.desiredExistence === 'Exists' && v.currentExistence === 'Exists').length
@@ -220,7 +220,7 @@ test.describe.serial('vm', () => {
     await waitVm('VM-15 extra VM has an instance', fits, (v) => v.currentExistence === 'Exists')
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Services/Compute/ComputeOwnership.cs RequireVmAsync
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Compute/ComputeOwnership.cs RequireVmAsync
   test("VM-19 another tenant's VM is 404 VM_NOT_FOUND", async () => {
     expectError(await call('admin', 'GET', `/v1/tenant/vms/${vmA}`), 404, 'VM_NOT_FOUND')
     expectError(await call('admin', 'DELETE', `/v1/tenant/vms/${vmA}`), 404, 'VM_NOT_FOUND')
@@ -228,14 +228,14 @@ test.describe.serial('vm', () => {
   })
 
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/Network/DeleteNetworkCommandHandler.cs HandleAsync (NETWORK_NOT_EMPTY)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/Network/DeleteNetworkCommandHandler.cs HandleAsync (NETWORK_NOT_EMPTY)
   test('VM-21 deleting the run network while a VM lives on it is 422 NETWORK_NOT_EMPTY', async () => {
     expectError(await call('tenant', 'DELETE', `/v1/tenant/networks/${networkId}`), 422, 'NETWORK_NOT_EMPTY')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Vm/DeleteVmEndpoint.cs HandleAsync ·
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (vm.IsTerminal: a Deleted VM answers 202) ·
-  // OpenViCloud/control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (case "Deleted": vm.MarkDeleted())
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/DeleteVmEndpoint.cs HandleAsync ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/DeleteVmCommandHandler.cs HandleAsync (vm.IsTerminal: a Deleted VM answers 202) ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync (case "Deleted": vm.MarkDeleted())
   test('VM-16 delete is 202, then Deleted; a repeat is 202', async () => {
     const reply = await call('tenant', 'DELETE', `/v1/tenant/vms/${vmA}`)
     expectStatus(reply, 202)
@@ -248,7 +248,7 @@ test.describe.serial('vm', () => {
     expect(countOf(actions, 'vm.deleted')).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ExistsByNameAsync — a Deleted VM no longer holds its name
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ExistsByNameAsync — a Deleted VM no longer holds its name
   test('VM-18 a new VM may take the name of a Deleted one', async () => {
     const { smallTier } = await envOf()
     const again = await createVm(renamed, smallTier, networkId)

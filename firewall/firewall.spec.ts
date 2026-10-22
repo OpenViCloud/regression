@@ -7,7 +7,7 @@ import { runNetwork } from './fixtures'
 // Cases FW-01..05 and FW-07..08 of plan.md: FW-07 reads the Incus host, FW-08 is NOT COVERED; rules of a
 // deleted network are NETL-02.
 
-// OpenViCloud/control-plane:Titan.Domain/Aggregates/Platform/Tenant/TenantQuota.cs DefaultMaxFirewallRulesPerNetwork — no API reads the cap
+// OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Platform/Tenant/TenantQuota.cs DefaultMaxFirewallRulesPerNetwork — no API reads the cap
 const MAX_RULES_PER_NETWORK = 20
 
 function rulePath(networkId: string): string {
@@ -18,7 +18,7 @@ function ruleShape(r: any): string {
   return `state=${r.currentState} existence=${r.currentExistence} desired=${r.desiredExistence} transition=${r.transition} failure=${r.requestFailureReason}`
 }
 
-// The server's count: desired Exists and (Exists, or its create waits) — OpenViCloud/titan:docs/features/network/design.md#firewall-rule-quota-counting
+// The server's count: desired Exists and (Exists, or its create waits) — OpenViCloud/titan-ops:docs/features/network/design.md#firewall-rule-quota-counting
 function counts(r: any): boolean {
   return r.desiredExistence === 'Exists' && (r.currentExistence === 'Exists' || r.transition === 'Creating')
 }
@@ -78,15 +78,15 @@ test.describe.serial('firewall', () => {
     await closeSessions()
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Network/CreateFirewallRuleEndpoint.cs (Configure: Post("v1/tenant/networks/{networkId:guid}/firewall-rules");
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Network/CreateFirewallRuleEndpoint.cs (Configure: Post("v1/tenant/networks/{networkId:guid}/firewall-rules");
   // HandleAsync: SendAsync(result, 201)); the reconciler
-  // reports the ACL line (OpenViCloud/titan:docs/features/network/design.md#firewall-rule-status)
+  // reports the ACL line (OpenViCloud/titan-ops:docs/features/network/design.md#firewall-rule-status)
   test('FW-01 a rule is 201 {ruleId}, then enabled and Exists', async () => {
     const id = await createRule(0)
     const rule = await pollUntil('FW-01', () => readRule(id), (r) => r.currentState === 'enabled' && r.transition === null, ruleShape)
     expect(rule.currentExistence).toBe('Exists')
     // ACT-02: the activity row is named by the rule's label, which carries its CIDR
-    // (OpenViCloud/control-plane:Titan.Application/Commands/Networking/FirewallRule/CreateFirewallRuleCommandHandler.cs HandleAsync,
+    // (OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/FirewallRule/CreateFirewallRuleCommandHandler.cs HandleAsync,
     // activity.Stage("firewall_rule.create_requested"))
     const rows = await get('tenant', '/v1/tenant/activity?limit=50') as Array<{ action: string, resourceName: string }>
     const actions = rows.filter((r) => r.resourceName.includes(cidrOf(0))).map((r) => r.action)
@@ -95,7 +95,7 @@ test.describe.serial('firewall', () => {
     expect(actions.filter((a) => a === 'firewall_rule.created').length).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Networking/FirewallRule/FirewallRule.cs RequestDelete (CreateIsWaiting ⇒ FIREWALL_RULE_NOT_READY)
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Networking/FirewallRule/FirewallRule.cs RequestDelete (CreateIsWaiting ⇒ FIREWALL_RULE_NOT_READY)
   test('FW-02 deleting a rule whose create still waits is 422 FIREWALL_RULE_NOT_READY', async () => {
     const id = await createRule(1)
     const rule = await readRule(id)
@@ -104,7 +104,7 @@ test.describe.serial('firewall', () => {
     expectError(await call('tenant', 'DELETE', `${rulePath(networkId)}/${id}`), 422, 'FIREWALL_RULE_NOT_READY')
   })
 
-  // OpenViCloud/control-plane:Titan.Infrastructure/Endpoints/Network/DeleteFirewallRuleEndpoint.cs (Configure: Delete("v1/tenant/networks/{networkId:guid}/firewall-rules/{ruleId:guid}");
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Network/DeleteFirewallRuleEndpoint.cs (Configure: Delete("v1/tenant/networks/{networkId:guid}/firewall-rules/{ruleId:guid}");
   // HandleAsync: SendNoContentAsync)
   test('FW-03 deleting a rule that Exists is 204, it leaves the list, a repeat is 204', async () => {
     const id = made[0]
@@ -121,8 +121,8 @@ test.describe.serial('firewall', () => {
     expect(actions.filter((a) => a === 'firewall_rule.deleted').length).toBe(1)
   })
 
-  // OpenViCloud/control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateFirewallRule; a delete asked stops counting
-  // (OpenViCloud/titan:docs/features/network/design.md#firewall-rule-quota-counting)
+  // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Platform/Tenant/Tenant.cs EnsureCanCreateFirewallRule; a delete asked stops counting
+  // (OpenViCloud/titan-ops:docs/features/network/design.md#firewall-rule-quota-counting)
   test('FW-04 the rule past MaxFirewallRulesPerNetwork is 422 FIREWALL_QUOTA_EXCEEDED; a delete frees a slot', async () => {
     const live = (await get('tenant', rulePath(networkId)) as any[]).filter(counts).length
     log(`FW-04 live rules before: ${live}`)
@@ -140,8 +140,8 @@ test.describe.serial('firewall', () => {
     await createRule(151)
   })
 
-  // OpenViCloud/control-plane:Titan.Application/Commands/Networking/FirewallRule/DeleteFirewallRuleCommandHandler.cs HandleAsync (FIREWALL_RULE_NOT_FOUND) ·
-  // OpenViCloud/control-plane:Titan.Application/Services/Networking/Network/NetworkOwnership.cs RequireNetworkAsync (NETWORK_NOT_FOUND)
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Networking/FirewallRule/DeleteFirewallRuleCommandHandler.cs HandleAsync (FIREWALL_RULE_NOT_FOUND) ·
+  // OpenViCloud/titan-control-plane:Titan.Application/Services/Networking/Network/NetworkOwnership.cs RequireNetworkAsync (NETWORK_NOT_FOUND)
   test('FW-05 an unknown ruleId is 404 FIREWALL_RULE_NOT_FOUND, an unknown networkId 404 NETWORK_NOT_FOUND', async () => {
     expectError(await call('tenant', 'DELETE', `${rulePath(networkId)}/${randomUUID()}`), 404, 'FIREWALL_RULE_NOT_FOUND')
     expectError(await call('tenant', 'DELETE', `${rulePath(randomUUID())}/${made[1]}`), 404, 'NETWORK_NOT_FOUND')
