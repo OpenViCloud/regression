@@ -26,7 +26,7 @@ which signs in with the test accounts there, so no credential passes through the
 ## Run one module
 
 ```sh
-bash run-module.sh <kubeconfig> <source tree> <module> <label> <work dir> <log dir> [cli binary]
+bash run-module.sh <kubeconfig> <source tree> <module> <label> <work dir> <log dir> [binary]
 python3 count-cases.py <work dir of each module>/runner.log ...
 ```
 
@@ -48,7 +48,9 @@ python3 test_trim_cp_log.py
 ## Modules and order
 
 Rows the runner runs go in this order, one job each: a later module may use what an earlier one left in the run (the run's network); the
-module that changes the tenant's state and the one that deletes the run's network go last.
+module that changes the tenant's state and the one that deletes the run's network come after every module that uses them,
+`cleanup` after every module that leaves `rg-*` resources, and `terraform-provider` after `cleanup`, because its tests
+create a network and beta-user may hold one.
 
 | # | Module | Measures | Dev | Staging | Spec |
 |---|---|---|---|---|---|
@@ -71,8 +73,8 @@ module that changes the tenant's state and the one that deletes the run's networ
 | 17 | `tenant-suspend` | suspended ⇒ writes refused, reads allowed; reactivated | no | yes | yes |
 | 18 | `network-lifecycle` | deletes the run's network (with its rules), recreates the same name | yes | yes | yes |
 | 19 | `login-page` | Keycloak sign-in page: layout, colours, font, brand, sign-up form, language (no sign-in) | yes | yes | yes |
-| 20 | `cleanup` | sweeps `rg-*` through the API, asserts 0 (on Incus: CLN-02, host) | yes | yes | yes |
-| 21 | `terraform-provider` | the public provider: catalog, network + firewall rule, SSH key + VM + volume + attachment, load balancer (create, import, update in place, delete), plan-time validation — `go test -c` of the provider repo, run in the pod with an API token the spec makes there; after `cleanup`, because the tests create networks | no | yes | yes — `acceptance_*test.go` of the provider repo (TFP-04, TFP-08 by hand) |
+| 20 | `cleanup` | sweeps `rg-*` (and the `tfacc-*` a red `terraform-provider` run left) through the API, asserts 0 (on Incus: CLN-02, host) | yes | yes | yes |
+| 21 | `terraform-provider` | the public provider: catalog, network + firewall rule, SSH key + VM + volume + attachment, load balancer (create, import, update in place, delete), plan-time validation — `go test -c` of the provider repo, run in the pod with an API token the spec makes there; after `cleanup`, because the tests create networks | no | yes | yes — `terraform-provider.spec.ts` runs `acceptance_*test.go` of the provider repo (TFP-04, TFP-08 by hand) |
 | 22 | `worker` | the worker image staging runs comes from `OpenViCloud/titan-incus-worker`, pulls anonymously; the worker's command kinds match the control plane's — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
 | 23 | `control-plane-image` | the control plane image staging runs comes from `OpenViCloud/titan-control-plane`, pulls anonymously, digest matches the pod — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
 

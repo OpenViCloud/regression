@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { closeSessions, useBrowser } from './auth'
+import { cleanUp } from './clean-up'
 import { bodyOf, call, expectStatus, get, log, newKey, startLog } from './api'
 import { RUN, envOf, nameOf } from './fixtures'
 import { callWithToken, newSecret } from './token'
@@ -33,15 +34,21 @@ test.describe.serial('tenant-suspend', () => {
 
   test.afterAll(async () => {
     test.setTimeout(10 * 60_000)
+    const steps: Array<[string, () => Promise<void>]> = []
     if (suspended) {
-      await setStatus('Active')
-      log('afterAll: beta-user Active again')
+      steps.push(['beta-user Active again', async () => {
+        await setStatus('Active')
+        log('afterAll: beta-user Active again')
+      }])
     }
     if (tokenId !== '') {
-      const deleted = await call('tenant', 'DELETE', `/v1/tenant/api-tokens/${tokenId}`)
-      expect([204, 404], `${deleted.url} → ${deleted.text.slice(0, 200)}`).toContain(deleted.status)
+      steps.push([`delete token ${tokenId}`, async () => {
+        const deleted = await call('tenant', 'DELETE', `/v1/tenant/api-tokens/${tokenId}`)
+        expect([204, 404], `${deleted.url} → ${deleted.text.slice(0, 200)}`).toContain(deleted.status)
+      }])
     }
-    await closeSessions()
+    steps.push(['close sessions', closeSessions])
+    await cleanUp(steps)
   })
 
   // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Tenant/UpdateTenantStatusEndpoint.cs (Configure: Patch("v1/tenants/{tenantId:guid}/status");

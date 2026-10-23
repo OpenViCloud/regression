@@ -3,10 +3,12 @@ import { createHash } from 'node:crypto'
 import { closeSessions, useBrowser } from './auth'
 import { bodyOf, call, expectError, expectStatus, get, log, newKey, startLog } from './api'
 import { cleanUp } from './clean-up'
-import { nameOf } from './fixtures'
+import { activityOf, countOf, nameOf } from './fixtures'
 import { callWithToken, newSecret } from './token'
 
-// Cases TOK-01..05 of plan.md. Tokens are created with beta-user's JWT, named rg-tok-<run>, and deleted in afterAll.
+// Cases TOK-01..05 of plan.md, and ACT-02 for API tokens. The first token (rg-tok-<run>) is created with beta-user's JWT,
+// the second (rg-tok2-<run>) through the first; afterAll deletes both. A create TOK-03 expects refused but that
+// succeeds is left to cleanup, which sweeps rg-* tokens.
 test.describe.serial('api-token', () => {
   test.describe.configure({ timeout: 5 * 60_000 })
 
@@ -49,8 +51,8 @@ test.describe.serial('api-token', () => {
     const reply = await call('tenant', 'POST', '/v1/tenant/api-tokens', { name: firstName, token: firstSecret, expiresInDays: 90 }, newKey())
     expectStatus(reply, 201)
     const body = bodyOf(reply)
-    expect(Object.keys(body)).toEqual(['apiTokenId'])
     firstId = body.apiTokenId
+    expect(Object.keys(body)).toEqual(['apiTokenId'])
     const list = await get('tenant', '/v1/tenant/api-tokens') as any[]
     const row = list.find((t) => t.id === firstId)
     log(`TOK-01 id=${firstId} keys=${Object.keys(row).sort().join(',')} prefix-length=${row.prefix.length} createdAt=${row.createdAt} expiresAt=${row.expiresAt}`)
@@ -62,6 +64,11 @@ test.describe.serial('api-token', () => {
     const text = JSON.stringify(list)
     expect(text.includes(firstSecret)).toBe(false)
     expect(text.includes(hash)).toBe(false)
+    // ACT-02: one request row, one outcome row (OpenViCloud/titan-ops:docs/features/activity/design.md#request-and-outcome-names)
+    const actions = await activityOf(firstName)
+    log(`ACT-02 api token ${firstName}: ${actions.join(', ')}`)
+    expect(countOf(actions, 'api_token.create_requested')).toBe(1)
+    expect(countOf(actions, 'api_token.created')).toBe(1)
   })
 
   // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/ApiTokenSchemes.cs (ReadToken: scheme word without regard to case);
@@ -74,6 +81,7 @@ test.describe.serial('api-token', () => {
     const lower = await callWithToken(firstSecret, 'GET', '/v1/tenant', undefined, undefined, 'bearer')
     expectStatus(lower, 200)
     expect(bodyOf(lower).id).toBe(tenantId)
+    expectStatus(await callWithToken(firstSecret, 'GET', '/v1/tenant/api-tokens', undefined, undefined, 'bearer'), 200)
     const admin = await callWithToken(firstSecret, 'GET', '/v1/tenants')
     log(`TOK-02 tenant=${asToken.status} lowercase=${lower.status} /v1/tenants=${admin.status}`)
     expectStatus(admin, 403)
@@ -120,6 +128,12 @@ test.describe.serial('api-token', () => {
     expectStatus(after, 401)
     expectError(repeat, 404, 'API_TOKEN_NOT_FOUND')
     secondId = ''
+    // ACT-02: the replay of TOK-03 and the refused repeat add no row
+    const actions = await activityOf(secondName)
+    log(`ACT-02 api token ${secondName}: ${actions.join(', ')}`)
+    for (const action of ['api_token.create_requested', 'api_token.created', 'api_token.delete_requested', 'api_token.deleted']) {
+      expect(countOf(actions, action), action).toBe(1)
+    }
   })
 
   // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/ApiTokenAuthenticationHandler.cs (HandleAuthenticateAsync: Malformed API token,

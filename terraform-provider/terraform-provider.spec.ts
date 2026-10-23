@@ -11,7 +11,8 @@ import { newSecret } from './token'
 // tests by environment only, and deleted in afterAll. The binary is `go test -c` of the provider commit the release
 // measures, built for the node's architecture; the agent copies it through the runner's BINARY_WAIT path
 // (/work/bin/openvicloud, the name run-module.sh writes). terraform-plugin-testing finds no terraform in PATH and
-// installs one with hc-install. Runs after cleanup: the tests create networks and beta-user may hold one.
+// installs one with hc-install. Runs after cleanup: the tests create networks and beta-user may hold one. Resources a
+// red run leaves are named tfacc-*; cleanup sweeps them before the next run.
 // TFP-04 and TFP-08 are by hand.
 const BINARY = '/work/bin/openvicloud'
 const secret = newSecret()
@@ -37,6 +38,7 @@ test.afterAll(async () => {
   if (tokenId !== '') {
     const deleted = await call('tenant', 'DELETE', `/v1/tenant/api-tokens/${tokenId}`)
     log(`afterAll: delete token → ${deleted.status}`)
+    expect([204, 404], `${deleted.url} → ${deleted.text.slice(0, 200)}`).toContain(deleted.status)
   }
   await closeSessions()
 })
@@ -52,11 +54,12 @@ test('TFP-01..03, TFP-05..07, TFP-09..10 the provider acceptance tests pass agai
         TF_ACC: '1', OPENVICLOUD_API_URL: API, OPENVICLOUD_TOKEN: secret, OPENVICLOUD_TEST_ZONE: 'singapore01',
       },
     })
-    let out = ''
-    const take = (chunk: Buffer) => { out += chunk.toString().split(secret).join('<token>') }
+    // Masked once at the end: a secret split across two chunks would pass a per-chunk mask.
+    let raw = ''
+    const take = (chunk: Buffer) => { raw += chunk.toString() }
     child.stdout.on('data', take)
     child.stderr.on('data', take)
-    child.on('close', (code) => resolve({ code: code === null ? -1 : code, out }))
+    child.on('close', (code) => resolve({ code: code === null ? -1 : code, out: raw.split(secret).join('<token>') }))
   })
   fs.writeFileSync(`${RESULTS}/tfacc.txt`, result.out)
   for (const line of result.out.split('\n')) {

@@ -20,8 +20,8 @@ import { newSecret } from './token'
 // which drops module state (authUrl, browserRef) and re-runs only the hooks of describes that still have tests
 // left — a root-level beforeAll runs again, a nested one does not. The CLI's own session lives on disk under
 // CLI_HOME and survives a worker restart, so login happens at most once; CLI-11's known failure (SSH-REFUSAL-EDGE)
-// must not skip CLI-12..17 or CLI-04, so those sit in their own describes, not CLI-06..11's serial chain. CLI-04 is
-// last of all four because it logs the CLI out.
+// must not skip CLI-12..18 or CLI-04, so those sit in their own describes, not CLI-06..11's serial chain. CLI-04 is
+// last of all five because it logs the CLI out.
 const BINARY = '/work/bin/openvicloud'
 const CLI_HOME = '/work/cli-home'
 
@@ -667,7 +667,6 @@ test.describe.serial('cli lifecycle', () => {
   })
 })
 
-// CLI-04 is last and on its own: it logs the CLI out, so nothing after it in this file may assume a session.
 // Its own config dir, so no login session can answer in the token's place; the token is made through the API and
 // deleted in afterAll. The secret goes to the CLI by environment only, never into the log.
 test.describe.serial('cli api token', () => {
@@ -725,6 +724,7 @@ test.describe.serial('cli api token', () => {
   })
 })
 
+// CLI-04 is last and on its own: it logs the CLI out, so nothing after it in this file may assume a session.
 test.describe('cli logout', () => {
   // OpenViCloud/titan-cli:command/auth/auth.go newLogout (logout), OpenViCloud/titan-cli:command/root.go Deps.explainSession (not logged in):
   // a sentence, exit ≠ 0
