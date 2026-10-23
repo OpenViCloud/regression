@@ -6,9 +6,10 @@ import { PORTAL, closeSessions, useBrowser } from './auth'
 import { startLocalProxyIfNeeded } from './local-proxy'
 import { API, RESULTS, bodyOf, call, expectError, expectStatus, get, log, newKey, sleep, startLog } from './api'
 import { RUN, activityOf, countOf, createVm, deleteVmAndWait, envOf, getVm, runNetwork, runs, vmShape, waitVm } from './fixtures'
+import { newSecret } from './token'
 
-// Cases CLI-01..17 of plan.md, in four describes that run in this order: 'cli' (CLI-01..03, CLI-06..11),
-// 'cli catalog' (CLI-05), 'cli lifecycle' (CLI-12..17), 'cli logout' (CLI-04). The binary is not in the image: when
+// Cases CLI-01..18 of plan.md, in five describes that run in this order: 'cli' (CLI-01..03, CLI-06..11),
+// 'cli catalog' (CLI-05), 'cli lifecycle' (CLI-12..17), 'cli api token' (CLI-18), 'cli logout' (CLI-04). The binary is not in the image: when
 // this spec logs BINARY_WAIT the agent copies `openvicloud` built for the pod's architecture from the CLI commit the
 // release measures to /work/bin/openvicloud, checks sha256, then touches /work/bin/openvicloud.ready
 // (release:regression §Runner).
@@ -667,6 +668,63 @@ test.describe.serial('cli lifecycle', () => {
 })
 
 // CLI-04 is last and on its own: it logs the CLI out, so nothing after it in this file may assume a session.
+// Its own config dir, so no login session can answer in the token's place; the token is made through the API and
+// deleted in afterAll. The secret goes to the CLI by environment only, never into the log.
+test.describe.serial('cli api token', () => {
+  const emptyHome = '/work/cli-home-token'
+  const secret = newSecret()
+  let tokenId = ''
+
+  function runWithToken(token: string, args: string[]): Promise<CliResult> {
+    return new Promise((resolve) => {
+      const child = spawn(BINARY, args, { env: { ...cliEnv(), XDG_CONFIG_HOME: emptyHome, OPENVICLOUD_TOKEN: token } })
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (chunk) => { stdout += chunk.toString() })
+      child.stderr.on('data', (chunk) => { stderr += chunk.toString() })
+      child.on('close', (code) => {
+        let exit = -1
+        if (code !== null) {
+          exit = code
+        }
+        resolve({ code: exit, stdout, stderr })
+      })
+    })
+  }
+
+  test.afterAll(async () => {
+    if (tokenId !== '') {
+      const deleted = await call('tenant', 'DELETE', `/v1/tenant/api-tokens/${tokenId}`)
+      expect([204, 404], `${deleted.url} → ${deleted.text.slice(0, 200)}`).toContain(deleted.status)
+    }
+  })
+
+  // OpenViCloud/titan-cli:command/root.go (Deps.ApiToken, ApiTokenFromEnv: OPENVICLOUD_TOKEN replaces the session);
+  // OpenViCloud/titan-cli:output/problem.go Explain (401 with SentApiToken names OPENVICLOUD_TOKEN) · OpenViCloud/titan-ops:docs/features/cli/design.md#api-token
+  test('CLI-18 OPENVICLOUD_TOKEN with no session: tenant get and vm list work; an unknown token names OPENVICLOUD_TOKEN, not auth login', async () => {
+    fs.rmSync(emptyHome, { recursive: true, force: true })
+    fs.mkdirSync(emptyHome, { recursive: true })
+    const created = await call('tenant', 'POST', '/v1/tenant/api-tokens', { name: `rg-tok-cli-${RUN}`, token: secret, expiresInDays: 30 }, newKey())
+    expectStatus(created, 201)
+    tokenId = bodyOf(created).apiTokenId
+
+    const tenant = await runWithToken(secret, ['tenant', 'get', '-o', 'json'])
+    expect(tenant.code, tenant.stderr).toBe(0)
+    const fromCli = JSON.parse(tenant.stdout)
+    const fromApi = await get('tenant', '/v1/tenant')
+    for (const field of ['id', 'name', 'status', 'maxVms', 'maxNetworks']) {
+      expect(fromCli[field], field).toEqual(fromApi[field])
+    }
+    const vms = await runWithToken(secret, ['vm', 'list'])
+    expect(vms.code, vms.stderr).toBe(0)
+    const unknown = await runWithToken(newSecret(), ['vm', 'list'])
+    log(`CLI-18 tenant get exit=${tenant.code} vm list exit=${vms.code} unknown token exit=${unknown.code} stderr="${unknown.stderr.trim()}"`)
+    expect(unknown.code).not.toBe(0)
+    expect(unknown.stderr).toContain('OPENVICLOUD_TOKEN')
+    expect(unknown.stderr).not.toContain('auth login')
+  })
+})
+
 test.describe('cli logout', () => {
   // OpenViCloud/titan-cli:command/auth/auth.go newLogout (logout), OpenViCloud/titan-cli:command/root.go Deps.explainSession (not logged in):
   // a sentence, exit ≠ 0

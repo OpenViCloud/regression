@@ -4,7 +4,7 @@ import { closeSessions, useBrowser } from './auth'
 import { bodyOf, call, expectStatus, get, log, newKey, pollUntil, startLog } from './api'
 import { runNetwork } from './fixtures'
 
-// Cases CON-10, CON-11 of plan.md. The spec the host serves (OpenViCloud/titan-control-plane:Titan.Tests/Api/OpenApiSpecTests.cs SpecUrl)
+// Cases CON-10, CON-11, CON-13 of plan.md. The spec the host serves (OpenViCloud/titan-control-plane:Titan.Tests/Api/OpenApiSpecTests.cs SpecUrl)
 // is the same document as OpenViCloud/titan-control-plane:api/openapi-v1.json, committed in that repository
 // (OpenViCloud/titan-control-plane:Titan.Tests/Api/OpenApiSpecTests.cs OpenApiSpec_MatchesCommittedBaseline pins the two equal), so reading it from
 // the running env is reading the contract.
@@ -288,5 +288,18 @@ test.describe.serial('contract-spec', () => {
     for (const row of topups) {
       assertEnumField(spec, 'TopUpQueryResult', 'status', row)
     }
+  })
+
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Catalog/ListTemplatesEndpoint.cs (ListTemplatesRequest: [QueryParam] ZoneId)
+  // · OpenViCloud/titan-ops:docs/features/public-api/design.md#spec-breaking-gate
+  test('CON-13 the served spec declares zoneId on GET /v1/templates as an optional query parameter', async () => {
+    const spec = await fetchSpec()
+    const op = spec.paths['/v1/templates']['get']
+    const parameters = (op.parameters || []) as any[]
+    const zone = parameters.find((p) => p.name === 'zoneId')
+    log(`CON-13 GET /v1/templates parameters=${JSON.stringify(parameters)}`)
+    expect(zone, 'zoneId must be declared').toBeTruthy()
+    expect(zone.in).toBe('query')
+    expect(zone.required === true).toBe(false)
   })
 })

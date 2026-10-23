@@ -4,7 +4,7 @@ import { bodyOf, call, expectError, expectStatus, get, log, newKey, pollUntil, s
 import { cleanUp } from './clean-up'
 import { RUN, activityOf, countOf, createVm, deleteVmAndWait, envOf, existenceShape, runNetwork, waitNetwork, networkUsable, waitVm } from './fixtures'
 
-// Cases LB-01..LB-07 of plan.md (LB-08, traffic through the VIP, reads the Incus host). The run network has
+// Cases LB-01..LB-07 and LB-09 of plan.md (LB-08, traffic through the VIP, reads the Incus host). The run network has
 // no public IPv6 and beta-user holds one network, so the positive cases raise maxNetworks by one for a second network
 // with IPv6, and give it back in afterAll — in a zone whose cluster has no IPv6 block they are skipped.
 test.describe.serial('load-balancer', () => {
@@ -18,6 +18,8 @@ test.describe.serial('load-balancer', () => {
   let subnet = ''
   let vmId = ''
   let lbId = ''
+  // LB-09: a second load balancer on the same network, renamed, deleted before LB-06.
+  let secondLbId = ''
 
   const http = { protocol: 'TCP', port: 80, targetPort: 8080 }
   const dns = { protocol: 'UDP', port: 53, targetPort: 53 }
@@ -38,6 +40,17 @@ test.describe.serial('load-balancer', () => {
   test.afterAll(async () => {
     test.setTimeout(20 * 60_000)
     await cleanUp([
+      ['second load balancer', async () => {
+        if (secondLbId === '') {
+          return
+        }
+        const lb = await readLb(secondLbId)
+        if (lb.desiredExistence === 'Exists') {
+          await pollUntil('second load balancer at rest', () => readLb(secondLbId), (row) => row.transition === null, existenceShape)
+          expectStatus(await call('tenant', 'DELETE', `/v1/tenant/load-balancers/${secondLbId}`), 202)
+        }
+        await pollUntil('second load balancer deleted', () => readLb(secondLbId), (row) => row.currentExistence === 'Deleted', existenceShape)
+      }],
       ['load balancer', async () => {
         if (lbId === '') {
           return
@@ -139,6 +152,30 @@ test.describe.serial('load-balancer', () => {
     test.skip(lbId === '', 'LB-03 did not create a load balancer')
     expectError(await call('tenant', 'DELETE', `/v1/tenant/vms/${vmId}`), 422, 'VM_IS_LOAD_BALANCER_BACKEND')
     expect((await get('tenant', `/v1/tenant/vms/${vmId}`)).desiredExistence).toBe('Exists')
+  })
+
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/LoadBalancer/RenameLoadBalancerEndpoint.cs (Patch, 204, no provider command);
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/LoadBalancer/RenameLoadBalancerCommandHandler.cs HandleAsync
+  // (LOAD_BALANCER_NAME_TAKEN) · OpenViCloud/titan-ops:docs/features/load-balancer/design.md#lb-rename
+  test('LB-09 rename is 204 and keeps the VIP; a name another load balancer holds is 409 LOAD_BALANCER_NAME_TAKEN', async () => {
+    test.skip(lbId === '', 'LB-03 did not create a load balancer')
+    const created = await call('tenant', 'POST', '/v1/tenant/load-balancers',
+      { name: `rg-lb2-${RUN}`, networkId: ipv6NetworkId, listeners: [http], backends: [{ vmId }] }, newKey())
+    expectStatus(created, 202)
+    secondLbId = bodyOf(created).loadBalancerId
+    const before = await pollUntil('second load balancer on Incus', () => readLb(secondLbId),
+      (row) => row.currentExistence === 'Exists' && row.transition === null, existenceShape)
+    const renamed = await call('tenant', 'PATCH', `/v1/tenant/load-balancers/${secondLbId}`, { name: `rg-lb2r-${RUN}` })
+    expectStatus(renamed, 204)
+    expect(renamed.text).toBe('')
+    const after = await readLb(secondLbId)
+    log(`LB-09 renamed ${before.name} → ${after.name}, vip ${before.vip} → ${after.vip}`)
+    expect(after.name).toBe(`rg-lb2r-${RUN}`)
+    expect(after.vip).toBe(before.vip)
+    expectError(await call('tenant', 'PATCH', `/v1/tenant/load-balancers/${secondLbId}`, { name: lbName }), 409, 'LOAD_BALANCER_NAME_TAKEN')
+    expect((await readLb(lbId)).name).toBe(lbName)
+    expectStatus(await call('tenant', 'DELETE', `/v1/tenant/load-balancers/${secondLbId}`), 202)
+    await pollUntil('second load balancer deleted', () => readLb(secondLbId), (row) => row.currentExistence === 'Deleted', existenceShape)
   })
 
   // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/LoadBalancer/DeleteLoadBalancerCommandHandler.cs HandleAsync
