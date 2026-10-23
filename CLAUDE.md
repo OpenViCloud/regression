@@ -11,7 +11,7 @@ Repo này không có hệ thống nào để chạy: spec chạy bằng runner `
 ├── CLAUDE.md        # file này: luật viết spec, giả định khi chạy trên staging
 ├── plan.md          # mọi case: ID, kỳ vọng, nguồn
 ├── run-module.sh    # một module = một job runner: nạp spec, chờ .done, chép kết quả + so sha256, xoá job;
-│                   #   kubeconfig là tham số đầu (staging hay dev), cli: chép binary khi BINARY_WAIT;
+│                   #   kubeconfig là tham số đầu (staging hay dev), cli và terraform-provider: chép binary khi BINARY_WAIT;
 │                   #   output runner vào thư mục làm việc (không commit), log control-plane + incus-worker
 │                   #   vào thư mục log, in `runner: … blob=<id>`; chép ảnh UI case (results/*.png) vào thư mục log
 │                   #   rồi chạy check-screenshots.py
@@ -29,6 +29,7 @@ Repo này không có hệ thống nào để chạy: spec chạy bằng runner `
 │   ├── edge-retry.ts  # gửi lại một lần: connect timeout (mọi method, request chưa rời runner); GET gặp socket hỏng hoặc trang HTML của edge. Ghi gặp lỗi khác thì không gửi lại
 │   ├── clean-up.ts  #   cleanUp(steps) cho afterAll: chạy hết mọi bước dọn, gom lỗi, ném một lần ở cuối — một lỗi mạng không để lại quota nâng
 │   ├── fixtures.ts  #   tên rg-<loại>-<lượt>, chọn zone/template/tier theo env, tìm-hoặc-tạo network của lượt
+│   ├── token.ts     #   newSecret(): bí mật token API ovc_…; callWithToken(): gọi API bằng token thay JWT
 │   └── local-proxy.ts  # tự bật khi URL là *.localhost (local-mac: issuer Keycloak mang cổng 8080)
 └── <module>/*.spec.ts
 ```

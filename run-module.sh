@@ -7,10 +7,10 @@
 # <log dir> (system logs, for diagnosis; the verdict comes from the specs), and so do the UI cases' screenshots
 # (results/*.png): they are the evidence of those cases. check-screenshots.py then names every UI case that passed
 # with no <ID>-*.png. The first line names the runner's git blob, so evidence/ never needs a copy of this script.
-# For module cli, pass the openvicloud binary built for the node's architecture: it is copied into the pod when the
-# runner logs BINARY_WAIT.
+# For modules cli and terraform-provider, pass the binary built for the node's architecture (the openvicloud CLI, or
+# `go test -c` of the provider): it is copied into the pod as /work/bin/openvicloud when the runner logs BINARY_WAIT.
 #
-# Usage:  bash run-module.sh <kubeconfig> <src tree> <module> <label> <work dir> <log dir> [cli binary]
+# Usage:  bash run-module.sh <kubeconfig> <src tree> <module> <label> <work dir> <log dir> [binary]
 #   <kubeconfig>  ~/.kube/titan-staging.yaml (staging) or ~/.lima/titan-k3s/copied-from-guest/kubeconfig.yaml (dev)
 #   <src tree>    `git archive <sha>` of this repository at the sha the release pins, extracted (with the
 #                 release's new specs copied in at their repo path); run this script from a checkout
@@ -24,7 +24,7 @@
 set -uo pipefail
 
 if [ "$#" -lt 6 ] || [ "$#" -gt 7 ]; then
-  echo "Usage: $0 <kubeconfig> <src tree> <module> <label> <work dir> <log dir> [cli binary]" >&2
+  echo "Usage: $0 <kubeconfig> <src tree> <module> <label> <work dir> <log dir> [binary]" >&2
   exit 2
 fi
 kc="$1"; src="$2"; module="$3"; label="$4"; out="$5"; logs_dir="$6"; bin="${7:-}"

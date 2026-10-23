@@ -3,12 +3,14 @@ import { closeSessions, useBrowser } from './auth'
 import { call, expectStatus, get, log, pollUntil, startLog } from './api'
 import { deleteVmAndWait, existenceShape, readVolume, waitNetwork, waitVolume } from './fixtures'
 
-// Case CLN-01 of plan.md (CLN-02 reads the Incus host). Runs last: removes every rg-* resource of beta-user
-// a module left behind, in an order Titan accepts — load balancers (a VM a live one sends to refuses its delete:
-// OpenViCloud/titan-ops:docs/features/load-balancer/design.md#lb-and-vm-network), rules, VMs (their snapshots go with them, attached volumes are
-// released: OpenViCloud/titan-ops:docs/features/volume/design.md#vm-delete-releases-volumes), volume snapshots, volumes, networks.
+// Case CLN-01 of plan.md (CLN-02 reads the Incus host). Runs after every module that leaves rg-* resources: removes every
+// rg-* resource of beta-user a module left behind, and the tfacc-* ones a red terraform-provider run left (that module
+// runs after this one, so a red run is followed by one more cleanup job), in an order Titan accepts — load balancers (a VM a live
+// one sends to refuses its delete: OpenViCloud/titan-ops:docs/features/load-balancer/design.md#lb-and-vm-network), rules, VMs (their snapshots go
+// with them, attached volumes are released: OpenViCloud/titan-ops:docs/features/volume/design.md#vm-delete-releases-volumes), volume snapshots,
+// volumes, networks, SSH keys, API tokens.
 function isTest(r: { name: string }): boolean {
-  return r.name.startsWith('rg-')
+  return r.name.startsWith('rg-') || r.name.startsWith('tfacc-')
 }
 
 test.describe.serial('cleanup', () => {
@@ -27,7 +29,13 @@ test.describe.serial('cleanup', () => {
   // HandleAsync, case Deleted: rule.MarkDeleted()), VM snapshots with their VM
   // (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync, case Deleted:
   // MarkAllDeletedByVmIdAsync); lists hide Deleted (OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ListByTenantAsync).
-  test('CLN-01 no rg-* load balancer, network, VM, volume or snapshot is left', async () => {
+  // SSH keys and API tokens are hard deletes answered 204:
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/SshKey/DeleteSshKeyCommandHandler.cs (HandleAsync: repo.Remove),
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Platform/ApiToken/DeleteApiTokenCommandHandler.cs (HandleAsync: repo.Remove),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/DeleteSshKeyEndpoint.cs (HandleAsync: SendNoContentAsync),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/ApiToken/DeleteApiTokenEndpoint.cs (HandleAsync: SendNoContentAsync).
+  // A leftover token counts toward the tenant's 20 forever (OpenViCloud/titan-ops:docs/features/public-api/design.md#api-token).
+  test('CLN-01 no rg-* or tfacc-* load balancer, network, VM, volume, snapshot, SSH key or API token is left', async () => {
     for (const lb of (await get('tenant', '/v1/tenant/load-balancers') as any[]).filter(isTest)) {
       log(`CLN-01 load balancer ${lb.name}`)
       await pollUntil(`load balancer ${lb.name} at rest`, () => get('tenant', `/v1/tenant/load-balancers/${lb.id}`),
@@ -83,11 +91,23 @@ test.describe.serial('cleanup', () => {
       await waitNetwork(`network ${network.name} deleted`, network.id, (n) => n.currentExistence === 'Deleted')
     }
 
+    for (const key of (await get('tenant', '/v1/tenant/ssh-keys') as any[]).filter(isTest)) {
+      log(`CLN-01 ssh key ${key.name}`)
+      expectStatus(await call('tenant', 'DELETE', `/v1/tenant/ssh-keys/${key.id}`), 204)
+    }
+
+    for (const token of (await get('tenant', '/v1/tenant/api-tokens') as any[]).filter(isTest)) {
+      log(`CLN-01 api token ${token.name}`)
+      expectStatus(await call('tenant', 'DELETE', `/v1/tenant/api-tokens/${token.id}`), 204)
+    }
+
     const left = [
       ...(await get('tenant', '/v1/tenant/load-balancers') as any[]),
       ...(await get('tenant', '/v1/tenant/networks') as any[]),
       ...(await get('tenant', '/v1/tenant/vms') as any[]),
       ...(await get('tenant', '/v1/tenant/volumes') as any[]),
+      ...(await get('tenant', '/v1/tenant/ssh-keys') as any[]),
+      ...(await get('tenant', '/v1/tenant/api-tokens') as any[]),
     ].filter(isTest).map((r) => r.name)
     log(`CLN-01 left: [${left.join(', ')}]`)
     expect(left).toEqual([])

@@ -26,7 +26,7 @@ which signs in with the test accounts there, so no credential passes through the
 ## Run one module
 
 ```sh
-bash run-module.sh <kubeconfig> <source tree> <module> <label> <work dir> <log dir> [cli binary]
+bash run-module.sh <kubeconfig> <source tree> <module> <label> <work dir> <log dir> [binary]
 python3 count-cases.py <work dir of each module>/runner.log ...
 ```
 
@@ -48,7 +48,9 @@ python3 test_trim_cp_log.py
 ## Modules and order
 
 Rows the runner runs go in this order, one job each: a later module may use what an earlier one left in the run (the run's network); the
-module that changes the tenant's state and the one that deletes the run's network go last.
+module that changes the tenant's state and the one that deletes the run's network come after every module that uses them,
+`cleanup` after every module that leaves `rg-*` resources, and `terraform-provider` after `cleanup`, because its tests
+create a network and beta-user may hold one.
 
 | # | Module | Measures | Dev | Staging | Spec |
 |---|---|---|---|---|---|
@@ -61,29 +63,30 @@ module that changes the tenant's state and the one that deletes the run's networ
 | 7 | `volume` | volumes and volume snapshots: create, attach/detach, restore, delete | yes | yes | yes |
 | 8 | `load-balancer` | L4 load balancer on an IPv6 network: create, VIP, reconfigure, backend VM delete refused, delete (zone without an IPv6 block: negative cases only) | yes | yes | yes |
 | 9 | `tenant` | tenant, quota, terms consent | yes | yes | yes |
-| 10 | `api-token` | API tokens: create, call the API with one, duplicate name/secret, delete ⇒ `401`, unknown token | yes | yes | no |
+| 10 | `api-token` | API tokens: create, call the API with one, duplicate name/secret, delete ⇒ `401`, unknown token | yes | yes | yes |
 | 11 | `cli` | `openvicloud`: version, web sign-in, `OPENVICLOUD_TOKEN`, `tenant get` matches the API, `vm ssh` + `scp` into a real VM, sign-out | yes | yes | yes |
-| 12 | `terraform-provider` | the public provider: catalog, network + firewall rule, SSH key + VM + volume + attachment, load balancer (create, import, update in place, delete), plan-time validation — `TF_ACC` on the agent's machine | no | yes | yes — `acceptance_*test.go` of the provider repo (TFP-04, TFP-08 by hand) |
-| 13 | `billing` | metering, costs, invoices, paying from the wallet, top-ups, promo credit, `/healthz/wallet` | no | yes | yes |
-| 14 | `contract` | HTTP contract: status codes, Idempotency-Key, error envelope, auth, CORS, TLS | no | yes | yes |
-| 15 | `concurrency` | double clicks, invoice paid twice at once | no | yes | yes |
-| 16 | `admin` | admin API: networks/VMs of every tenant, VM deleted on a tenant's behalf + audit, clusters, prices (admin portal screens: deferred) | no | yes | yes (API) |
-| 17 | `portal-ui` | customer portal end to end, signed in | no | yes | yes |
-| 18 | `tenant-suspend` | suspended ⇒ writes refused, reads allowed; reactivated | no | yes | yes |
-| 19 | `network-lifecycle` | deletes the run's network (with its rules), recreates the same name | yes | yes | yes |
-| 20 | `login-page` | Keycloak sign-in page: layout, colours, font, brand, sign-up form, language (no sign-in) | yes | yes | yes |
-| 21 | `cleanup` | sweeps `rg-*` through the API, asserts 0 (on Incus: CLN-02, host) | yes | yes | yes |
+| 12 | `billing` | metering, costs, invoices, paying from the wallet, top-ups, promo credit, `/healthz/wallet` | no | yes | yes |
+| 13 | `contract` | HTTP contract: status codes, Idempotency-Key, error envelope, auth, CORS, TLS | no | yes | yes |
+| 14 | `concurrency` | double clicks, invoice paid twice at once | no | yes | yes |
+| 15 | `admin` | admin API: networks/VMs of every tenant, VM deleted on a tenant's behalf + audit, clusters, prices (admin portal screens: deferred) | no | yes | yes (API) |
+| 16 | `portal-ui` | customer portal end to end, signed in | no | yes | yes |
+| 17 | `tenant-suspend` | suspended ⇒ writes refused, reads allowed; reactivated | no | yes | yes |
+| 18 | `network-lifecycle` | deletes the run's network (with its rules), recreates the same name | yes | yes | yes |
+| 19 | `login-page` | Keycloak sign-in page: layout, colours, font, brand, sign-up form, language (no sign-in) | yes | yes | yes |
+| 20 | `cleanup` | sweeps `rg-*` (and the `tfacc-*` a red `terraform-provider` run left) through the API, asserts 0 (on Incus: CLN-02, host) | yes | yes | yes |
+| 21 | `terraform-provider` | the public provider: catalog, network + firewall rule, SSH key + VM + volume + attachment, load balancer (create, import, update in place, delete), plan-time validation — `go test -c` of the provider repo, run in the pod with an API token the spec makes there; after `cleanup`, because the tests create networks | no | yes | yes — `terraform-provider.spec.ts` runs `acceptance_*test.go` of the provider repo (TFP-04, TFP-08 by hand) |
 | 22 | `worker` | the worker image staging runs comes from `OpenViCloud/titan-incus-worker`, pulls anonymously; the worker's command kinds match the control plane's — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
 | 23 | `control-plane-image` | the control plane image staging runs comes from `OpenViCloud/titan-control-plane`, pulls anonymously, digest matches the pod — `gh`/`curl`/`kubectl` reads on the agent's machine | no | yes | no |
 
 Steps outside the runner: before `billing` the agent runs `billing/seed-invoices.sql` (psql on the environment's
 database; on staging an approved `L-x`), after `concurrency` it runs `billing/check-wallets.sql` (read only, BIL-14);
-module `cli` needs the agent to copy the binary into the pod when the spec logs `BINARY_WAIT`.
+modules `cli` and `terraform-provider` need the agent to copy a binary into the pod when the spec logs `BINARY_WAIT`
+(`cli`: the CLI built for the node's architecture; `terraform-provider`: `GOOS=linux GOARCH=<node> CGO_ENABLED=0 go test -c`
+of the provider repo — `run-module.sh` copies either to `/work/bin/openvicloud`).
 
 Not run by the runner (Phase 4 of `release:regression`): `observation` — state changed on the Incus host outside
 OpenViCloud, needs an approved `L-x` command; `site` — the public site through Playwright MCP on the agent's machine;
-`worker`, `control-plane-image` — read-only `gh`/`curl`/`kubectl` on the agent's machine; `terraform-provider` —
-`TF_ACC` of the provider repository on the agent's machine, against staging.
+`worker`, `control-plane-image` — read-only `gh`/`curl`/`kubectl` on the agent's machine.
 
 **Spec** is `yes` when every case of the module in `plan.md` has a spec that ran green on staging at a release, except `(host)` cases (Phase 4
 of the release), **NOT COVERED** cases (the reason is in `plan.md`) and cases not applicable to the measured

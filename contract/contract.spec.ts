@@ -11,9 +11,9 @@ import { startLocalProxyIfNeeded } from './local-proxy'
 // actions answer 202 with no body) are asserted where each route runs: NET-06, VM-08, TEN-02, TEN-04, BIL-08 and
 // BIL-04, BIL-07, BIL-10, CAT-06.
 
-// The ten creates that carry IRequiresIdempotencyKey (OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/{Vm,Volume,
-// Network,VmSnapshots,VolumeSnapshots,TopUp,SshKey}/*). Route ids are random: the key check runs before the endpoint.
-function tenCreates(): Array<{ as: 'tenant' | 'admin', path: string }> {
+// The twelve creates that carry IRequiresIdempotencyKey (OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/{Vm,Volume,
+// Network,VmSnapshots,VolumeSnapshots,TopUp,SshKey,ApiToken,LoadBalancer}/*). Route ids are random: the key check runs before the endpoint.
+function twelveCreates(): Array<{ as: 'tenant' | 'admin', path: string }> {
   const id = randomUUID()
   return [
     { as: 'tenant', path: '/v1/tenant/vms' },
@@ -25,6 +25,8 @@ function tenCreates(): Array<{ as: 'tenant' | 'admin', path: string }> {
     { as: 'tenant', path: `/v1/tenant/volumes/${id}/snapshots/${randomUUID()}/restore` },
     { as: 'tenant', path: '/v1/tenant/topups' },
     { as: 'tenant', path: '/v1/tenant/ssh-keys' },
+    { as: 'tenant', path: '/v1/tenant/api-tokens' },
+    { as: 'tenant', path: '/v1/tenant/load-balancers' },
     { as: 'admin', path: '/v1/admin/topups/grant' },
   ]
 }
@@ -79,9 +81,9 @@ test.describe.serial('contract', () => {
   })
 
   // OpenViCloud/titan-control-plane:Titan.Infrastructure/Auth/IdempotencyMiddleware.cs InvokeAsync (IDEMPOTENCY_KEY_REQUIRED)
-  test('CON-03 each of the ten creates without Idempotency-Key is 400 IDEMPOTENCY_KEY_REQUIRED', async () => {
-    const creates = tenCreates()
-    expect(creates.length).toBe(10)
+  test('CON-03 each of the twelve creates without Idempotency-Key is 400 IDEMPOTENCY_KEY_REQUIRED', async () => {
+    const creates = twelveCreates()
+    expect(creates.length).toBe(12)
     for (const create of creates) {
       const reply = await call(create.as, 'POST', create.path, {})
       log(`CON-03 ${create.path} → ${reply.status} ${reply.text.slice(0, 120)}`)
