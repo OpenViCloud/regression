@@ -5,7 +5,7 @@ import { deleteVmAndWait, existenceShape, readVolume, waitNetwork, waitVolume } 
 
 // Case CLN-01 of plan.md (CLN-02 reads the Incus host). Runs after every module that leaves rg-* resources: removes every
 // rg-* resource of beta-user a module left behind, and the tfacc-* ones a red terraform-provider run left (that module
-// runs after this one, so its leftovers go at the next run), in an order Titan accepts — load balancers (a VM a live
+// runs after this one, so a red run is followed by one more cleanup job), in an order Titan accepts — load balancers (a VM a live
 // one sends to refuses its delete: OpenViCloud/titan-ops:docs/features/load-balancer/design.md#lb-and-vm-network), rules, VMs (their snapshots go
 // with them, attached volumes are released: OpenViCloud/titan-ops:docs/features/volume/design.md#vm-delete-releases-volumes), volume snapshots,
 // volumes, networks, SSH keys, API tokens.
@@ -29,9 +29,11 @@ test.describe.serial('cleanup', () => {
   // HandleAsync, case Deleted: rule.MarkDeleted()), VM snapshots with their VM
   // (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync, case Deleted:
   // MarkAllDeletedByVmIdAsync); lists hide Deleted (OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ListByTenantAsync).
-  // SSH keys and API tokens are hard deletes (OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/DeleteSshKeyEndpoint.cs,
-  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/ApiToken/DeleteApiTokenEndpoint.cs: 204); a leftover token counts toward the
-  // tenant's 20 forever (OpenViCloud/titan-ops:docs/features/public-api/design.md#api-token).
+  // SSH keys and API tokens are hard deletes (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/SshKey/DeleteSshKeyCommandHandler.cs,
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Platform/ApiToken/DeleteApiTokenCommandHandler.cs: repo.Remove) answered 204
+  // (OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/DeleteSshKeyEndpoint.cs,
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/ApiToken/DeleteApiTokenEndpoint.cs: SendNoContentAsync); a leftover token counts
+  // toward the tenant's 20 forever (OpenViCloud/titan-ops:docs/features/public-api/design.md#api-token).
   test('CLN-01 no rg-* or tfacc-* load balancer, network, VM, volume, snapshot, SSH key or API token is left', async () => {
     for (const lb of (await get('tenant', '/v1/tenant/load-balancers') as any[]).filter(isTest)) {
       log(`CLN-01 load balancer ${lb.name}`)

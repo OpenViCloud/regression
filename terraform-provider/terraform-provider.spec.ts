@@ -4,6 +4,7 @@ import * as fs from 'node:fs'
 import { closeSessions, useBrowser } from './auth'
 import { API, RESULTS, bodyOf, call, expectStatus, log, newKey, startLog } from './api'
 import { RUN } from './fixtures'
+import { cleanUp } from './clean-up'
 import { newSecret } from './token'
 
 // Cases TFP-01..03, 05..07, 09, 10 of plan.md: the acceptance tests of OpenViCloud/terraform-provider-openvicloud, run
@@ -12,7 +13,7 @@ import { newSecret } from './token'
 // measures, built for the node's architecture; the agent copies it through the runner's BINARY_WAIT path
 // (/work/bin/openvicloud, the name run-module.sh writes). terraform-plugin-testing finds no terraform in PATH and
 // installs one with hc-install. Runs after cleanup: the tests create networks and beta-user may hold one. Resources a
-// red run leaves are named tfacc-*; cleanup sweeps them before the next run.
+// red run leaves are named tfacc-*: a red run is followed at once by one more cleanup job, which sweeps them.
 // TFP-04 and TFP-08 are by hand.
 const BINARY = '/work/bin/openvicloud'
 const secret = newSecret()
@@ -35,12 +36,16 @@ test.beforeAll(async ({ browser }) => {
 
 test.afterAll(async () => {
   test.setTimeout(5 * 60_000)
+  const steps: Array<[string, () => Promise<void>]> = []
   if (tokenId !== '') {
-    const deleted = await call('tenant', 'DELETE', `/v1/tenant/api-tokens/${tokenId}`)
-    log(`afterAll: delete token → ${deleted.status}`)
-    expect([204, 404], `${deleted.url} → ${deleted.text.slice(0, 200)}`).toContain(deleted.status)
+    steps.push([`delete token ${tokenId}`, async () => {
+      const deleted = await call('tenant', 'DELETE', `/v1/tenant/api-tokens/${tokenId}`)
+      log(`afterAll: delete token → ${deleted.status}`)
+      expect([204, 404], `${deleted.url} → ${deleted.text.slice(0, 200)}`).toContain(deleted.status)
+    }])
   }
-  await closeSessions()
+  steps.push(['close sessions', closeSessions])
+  await cleanUp(steps)
 })
 
 test('TFP-01..03, TFP-05..07, TFP-09..10 the provider acceptance tests pass against the env, with a token made in the pod', async () => {

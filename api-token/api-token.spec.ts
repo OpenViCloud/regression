@@ -128,7 +128,7 @@ test.describe.serial('api-token', () => {
     expectStatus(after, 401)
     expectError(repeat, 404, 'API_TOKEN_NOT_FOUND')
     secondId = ''
-    // ACT-02: the replay of TOK-03 and the refused repeat add no row
+    // ACT-02, ACT-03: one row of each kind — the replay of TOK-03 and the refused repeat add none
     const actions = await activityOf(secondName)
     log(`ACT-02 api token ${secondName}: ${actions.join(', ')}`)
     for (const action of ['api_token.create_requested', 'api_token.created', 'api_token.delete_requested', 'api_token.deleted']) {
