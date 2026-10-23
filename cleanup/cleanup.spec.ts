@@ -29,11 +29,12 @@ test.describe.serial('cleanup', () => {
   // HandleAsync, case Deleted: rule.MarkDeleted()), VM snapshots with their VM
   // (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/Vm/UpdateVmStatusCommandHandler.cs HandleAsync, case Deleted:
   // MarkAllDeletedByVmIdAsync); lists hide Deleted (OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs ListByTenantAsync).
-  // SSH keys and API tokens are hard deletes (OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/SshKey/DeleteSshKeyCommandHandler.cs,
-  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Platform/ApiToken/DeleteApiTokenCommandHandler.cs: repo.Remove) answered 204
-  // (OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/DeleteSshKeyEndpoint.cs,
-  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/ApiToken/DeleteApiTokenEndpoint.cs: SendNoContentAsync); a leftover token counts
-  // toward the tenant's 20 forever (OpenViCloud/titan-ops:docs/features/public-api/design.md#api-token).
+  // SSH keys and API tokens are hard deletes answered 204:
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Compute/SshKey/DeleteSshKeyCommandHandler.cs (HandleAsync: repo.Remove),
+  // OpenViCloud/titan-control-plane:Titan.Application/Commands/Platform/ApiToken/DeleteApiTokenCommandHandler.cs (HandleAsync: repo.Remove),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/SshKey/DeleteSshKeyEndpoint.cs (HandleAsync: SendNoContentAsync),
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/ApiToken/DeleteApiTokenEndpoint.cs (HandleAsync: SendNoContentAsync).
+  // A leftover token counts toward the tenant's 20 forever (OpenViCloud/titan-ops:docs/features/public-api/design.md#api-token).
   test('CLN-01 no rg-* or tfacc-* load balancer, network, VM, volume, snapshot, SSH key or API token is left', async () => {
     for (const lb of (await get('tenant', '/v1/tenant/load-balancers') as any[]).filter(isTest)) {
       log(`CLN-01 load balancer ${lb.name}`)
