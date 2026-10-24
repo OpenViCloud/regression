@@ -41,11 +41,13 @@ script from a checkout so its first line names the commit. The full procedure (o
 `beta-user` may hold one network and one quota, so one tenant runs one module at a time. The run is split in two lanes, each
 with a tenant of its own (`beta-user`, `beta-user-2`) and a CronJob of its own (`titan-regression`, `titan-regression-b`).
 `lanes.json` says which module runs in which lane and where a lane waits for the other (`barrier`, `signal`/`wait`,
-`external` for what the agent does outside the runner). It refuses a plan in which two modules that move the same wallet
-(`exclusive`) may run together, and every run (`--check` stops after this) checks it against the table below: every
-module the runner runs on staging is in exactly one lane, except `smoke` and `cleanup`, which each lane runs for its own
-tenant (and `cleanup` runs once more after a red `terraform-provider`). At most `max_pods` jobs run at once: staging is one small node. The second lane needs the test tenant
-`beta-user-2` and the CronJob `titan-regression-b` in the cluster.
+`external` for what the agent does outside the runner). It refuses a plan in which two modules that share a wallet or a
+shared list (`exclusive`) may run together, or in which the modules that take an IPv6 block from the zone
+(`same_lane`) are spread over lanes. Every run (`--check` stops after this) also checks `lanes.json` against the table
+below: every module the runner runs on staging is in exactly one lane, except `smoke` and `cleanup`, which each lane
+runs for its own tenant (and `cleanup` runs once more after a red `terraform-provider`). At most `max_pods` jobs run at
+once: staging is one small node. The second lane needs the test tenant `beta-user-2` and the CronJob
+`titan-regression-b` in the cluster. What each module changes and shares is the table in `CLAUDE.md`.
 
 ```sh
 python3 run-lanes.py --kubeconfig <kubeconfig> --src <source tree> --out <work dir> --logs <evidence dir> --label <run> [--binary cli=<path>] [--binary terraform-provider=<path>] [--max-pods N]
