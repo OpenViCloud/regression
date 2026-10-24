@@ -20,7 +20,7 @@ which signs in with the test accounts there, so no credential passes through the
 | `count-cases.py` | Counts `plan.md`'s IDs against the runner logs, for the report's first line |
 | `check-screenshots.py` | Fails when a browser case passed without its `<ID>-*.png` screenshot |
 | `trim-cp-log.py` | Drops the control plane's routine info lines from a saved log |
-| `run-lanes.py`, `lanes.json` | Runs the modules as lanes, one lane per test tenant, lanes side by side (below) |
+| `run-lanes.py`, `lanes.json`, `lanes-dev.json`, `lanes-dev-sequential.json` | Runs the modules as lanes, one lane per test tenant, lanes side by side (below); the two dev plans cover the Dev column |
 | `patch-job.py` | Points a job's `specs` volume at a ConfigMap of its own, so jobs started together never read each other's specs |
 | `selftest/`, `test_*.py` | Tests of the helpers and scripts above |
 | [`CLAUDE.md`](CLAUDE.md) | How specs are written and the assumptions a run on staging makes |
@@ -48,6 +48,8 @@ below: every module the runner runs on staging is in exactly one lane, except `s
 runs for its own tenant (and `cleanup` runs once more after a red `terraform-provider`). At most `max_pods` jobs run at
 once: staging is one small node. The second lane needs the test tenant `beta-user-2` and the CronJob
 `titan-regression-b` in the cluster. What each module changes and shares is the table in `CLAUDE.md`.
+
+The dev cluster runs fewer modules (the Dev column of the table below), so it has plans of its own, checked with `python3 run-lanes.py --check --column dev --lanes lanes-dev.json` (two lanes) or `--lanes lanes-dev-sequential.json` (one lane), and run with the same flags as below plus `--column dev --lanes <plan>`. Dev holds one pod at a time (`max_pods` 1), so those runs show that the two tenants do not disturb each other, not what load does; `test_run_lanes.py` keeps both plans covering the Dev column.
 
 ```sh
 python3 run-lanes.py --kubeconfig <kubeconfig> --src <source tree> --out <work dir> --logs <evidence dir> --label <run> [--binary cli=<path>] [--binary terraform-provider=<path>] [--max-pods N]

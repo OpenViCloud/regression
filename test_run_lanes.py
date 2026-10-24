@@ -317,6 +317,25 @@ class CoverageTest(unittest.TestCase):
         self.assertEqual(run_lanes.coverage_problems(plan, README), [])
 
 
+class DevColumnTest(unittest.TestCase):
+    """Dev runs fewer modules than staging; a plan for dev is checked against the Dev column."""
+
+    def test_the_dev_column_picks_the_modules_dev_runs(self):
+        self.assertEqual(run_lanes.readme_modules(README, "dev"), ["smoke", "login-page", "only-on-dev"])
+        self.assertEqual(run_lanes.readme_modules(README), ["smoke", "billing", "worker", "login-page"])
+
+    def test_a_dev_plan_is_clean_against_dev_and_wrong_against_staging(self):
+        plan = run_lanes.load_plan(plan_of({"a": lane(m("smoke"), m("only-on-dev"), m("login-page"))}))
+        self.assertEqual(run_lanes.coverage_problems(plan, README, "dev"), [])
+        self.assertNotEqual(run_lanes.coverage_problems(plan, README), [])
+
+    def test_the_repos_dev_plans_cover_the_dev_column(self):
+        text = (HERE / "README.md").read_text()
+        for name in ("lanes-dev.json", "lanes-dev-sequential.json"):
+            plan = run_lanes.load_plan(json.loads((HERE / name).read_text()))
+            self.assertEqual(run_lanes.coverage_problems(plan, text, "dev"), [], name)
+
+
 class EvidenceDirTest(unittest.TestCase):
     """Where a module's logs land: a module both lanes run must not share one directory."""
 
