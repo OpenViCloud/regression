@@ -9,6 +9,8 @@ Kỳ vọng chung cho mọi case tạo tài nguyên (không nhắc lại từng 
 
 **(host)** = đọc trên host Incus của zone (Phase 4 của `release:regression`, lệnh `L-x`).
 
+`beta-user` trong một case là tenant test của lane đang chạy: `beta-user` ở lane a và ở lượt tuần tự, `beta-user-2` ở lane b khi chạy hai lane ([testing §regression-lanes](https://github.com/OpenViCloud/titan-ops/blob/main/docs/architecture/testing.md#regression-lanes)); `smoke` và `cleanup` chạy ở cả hai lane.
+
 ---
 
 ## smoke
@@ -294,7 +296,7 @@ Hoá đơn để trả do `billing/seed-invoices.sql` tạo trên tenant `admin-
 | ADM-06 (`L-x`) | sửa giá offering rồi trả lại giá cũ — giá toàn cục, metering mọi tenant dùng giá mới trong lúc đổi | `204`; `GET /v1/vm-offerings` thấy giá mới rồi cũ | [metering §price-patch](https://github.com/OpenViCloud/titan-ops/blob/main/docs/features/billing/metering/design.md#price-patch) |
 | ADM-07 | `GET /v1/admin/audit-log` (màn: hoãn) | có dòng của ADM-03, đúng tenant sở hữu | [admin-portal §audit-log-page](https://github.com/OpenViCloud/titan-ops/blob/main/docs/features/admin-portal/design.md#audit-log-page) |
 | ADM-08 (màn) | admin portal, trang Credits: mục "Top-ups waiting for confirmation" khi `beta-user` có topup `Pending` của lượt (UI-07 để lại); Confirm với mã giao dịch `rg-<lượt>` | hàng hiện tenant, số tiền, `paymentRef` khớp API; sau Confirm hàng biến mất, `GET /v1/admin/topups` báo `Confirmed` nguồn `Manual`, ví `beta-user` + số tiền; topup promo và topup đã `Confirmed` không có nút Confirm | [topup §topup-portal](https://github.com/OpenViCloud/titan-ops/blob/main/docs/features/billing/topup/design.md#topup-portal) |
-| ADM-09 (màn) | admin portal, trang Tenants: Edit quota trên `beta-user`; Debt ceiling gõ `9.000.000`, lưu, rồi khôi phục | dialog hiện đủ 9 cap = hàng `GET /v1/tenants`; `PATCH .../debt-ceiling` mang `9000000` (không `9000`), bảng hiện số mới rồi cũ | [admin-portal §admin-tenants-page](https://github.com/OpenViCloud/titan-ops/blob/main/docs/features/admin-portal/design.md#admin-tenants-page) · [tenant §quota-caps](https://github.com/OpenViCloud/titan-ops/blob/main/docs/features/tenant/design.md#quota-caps) |
+| ADM-09 (màn) | admin portal, trang Tenants: Edit quota trên hàng tên đúng `beta-user` (không phải hàng `beta-user-2`: hàng có hậu tố `-<từ>` sau tên không khớp); Debt ceiling gõ `9.000.000`, lưu, rồi khôi phục | dialog hiện đủ 9 cap = hàng `GET /v1/tenants`; `PATCH .../debt-ceiling` mang `9000000` (không `9000`), bảng hiện số mới rồi cũ | [admin-portal §admin-tenants-page](https://github.com/OpenViCloud/titan-ops/blob/main/docs/features/admin-portal/design.md#admin-tenants-page) · [tenant §quota-caps](https://github.com/OpenViCloud/titan-ops/blob/main/docs/features/tenant/design.md#quota-caps) |
 
 ## portal-ui (chỉ staging)
 
