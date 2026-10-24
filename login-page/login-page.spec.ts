@@ -1,9 +1,9 @@
-import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { test, expect, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test'
 import { PORTAL } from './auth'
 import { RESULTS, log, startLog } from './api'
 import { startLocalProxyIfNeeded } from './local-proxy'
 
-// Cases LOGIN-01..09 of plan.md: the Keycloak login theme `openvicloud`, read without signing in.
+// Cases LOGIN-01..10 of plan.md: the Keycloak login theme `openvicloud`, read without signing in.
 // Theme: OpenViCloud/titan-ops:gitops/keycloak/realm-import/theme/openvicloud/login/.
 // Nothing is submitted: register is opened, never sent.
 // Every case leaves ${RESULTS}/<ID>-<what>.png; the form is empty when it is taken.
@@ -31,6 +31,26 @@ async function loginUrl(page: Page): Promise<string> {
   }
   await page.locator('#username').waitFor({ state: 'visible', timeout: 45_000 })
   return page.url()
+}
+
+// The authorize request the portal sent the browser to, where ui_locales belongs. The page it lands on can be
+// Keycloak's /login-actions/authenticate (Keycloak resumes the tab it already has), and there ui_locales is ignored.
+async function authorizeUrl(page: Page): Promise<string> {
+  const authorizes: string[] = []
+  const onRequest = (request: Request): void => {
+    if (request.isNavigationRequest() && request.url().includes('/protocol/openid-connect/auth')) {
+      authorizes.push(request.url())
+    }
+  }
+  page.on('request', onRequest)
+  await loginUrl(page)
+  page.off('request', onRequest)
+  expect(authorizes.length, 'the portal sent the browser to the authorize endpoint').toBeGreaterThan(0)
+  return authorizes[authorizes.length - 1]
+}
+
+function keycloakPath(page: Page): string {
+  return new URL(page.url()).pathname.replace(/.*\/realms\/[^/]+/, '')
 }
 
 function withLocale(url: string, locale: string): string {
@@ -245,20 +265,20 @@ test.describe('login-page', () => {
   // an unsupported locale falls back to the default (en)
   test('LOGIN-07 ui_locales decides the language with an en-US browser; fr falls back to English', async ({ browser }) => {
     const { context, page } = await open(browser, 'light', 1280)
-    const url = await loginUrl(page)
+    const url = await authorizeUrl(page)
     await page.goto(withLocale(url, 'vi'), { waitUntil: 'domcontentloaded' })
     const lang = await page.evaluate(() => document.documentElement.lang)
-    log(`LOGIN-07 vi lang=${lang} title=${await page.title()}`)
+    log(`LOGIN-07 vi lang=${lang} path=${keycloakPath(page)} title=${await page.title()}`)
     expect(lang).toBe('vi')
     await expect(page).toHaveTitle(`Đăng nhập vào ${BRAND}`)
     await page.screenshot({ path: `${RESULTS}/LOGIN-07-vi.png` })
     await context.close()
 
     const other = await open(browser, 'light', 1280)
-    const otherUrl = await loginUrl(other.page)
+    const otherUrl = await authorizeUrl(other.page)
     await other.page.goto(withLocale(otherUrl, 'fr'), { waitUntil: 'domcontentloaded' })
     const otherLang = await other.page.evaluate(() => document.documentElement.lang)
-    log(`LOGIN-07 fr lang=${otherLang} title=${await other.page.title()}`)
+    log(`LOGIN-07 fr lang=${otherLang} path=${keycloakPath(other.page)} title=${await other.page.title()}`)
     expect(otherLang).toBe('en')
     await expect(other.page).toHaveTitle(`Sign in to ${BRAND}`)
     await other.page.screenshot({ path: `${RESULTS}/LOGIN-07-fr.png` })
@@ -268,10 +288,11 @@ test.describe('login-page', () => {
   // Every visible string of login, register (ui_locales=vi) and device (browser vi-VN) differs from its English text
   test('LOGIN-08 no English left on the Vietnamese pages, submit labels included', async ({ browser }) => {
     const { context, page } = await open(browser, 'light', 1280)
-    const url = await loginUrl(page)
+    const url = await authorizeUrl(page)
     const englishSubmit = await submitLabels(page)
     await page.goto(withLocale(url, 'vi'), { waitUntil: 'domcontentloaded' })
     await page.locator('#username').waitFor({ state: 'visible' })
+    log(`LOGIN-08 login path=${keycloakPath(page)}`)
     const texts: Array<[string, string, string[]]> = [['login', await visibleText(page), await submitLabels(page)]]
     await page.screenshot({ path: `${RESULTS}/LOGIN-08-login-vi.png` })
     await openRegister(page)
@@ -305,7 +326,7 @@ test.describe('login-page', () => {
     await saved.context.addInitScript(() => {
       window.localStorage.setItem('ovc-lang', 'vi')
     })
-    const savedUrl = await loginUrl(saved.page)
+    const savedUrl = await authorizeUrl(saved.page)
     log(`LOGIN-10 saved=vi ui_locales=${new URL(savedUrl).searchParams.get('ui_locales')} title=${await saved.page.title()}`)
     expect(new URL(savedUrl).searchParams.get('ui_locales')).toBe('vi')
     await expect(saved.page).toHaveTitle(`Đăng nhập vào ${BRAND}`)
@@ -313,7 +334,7 @@ test.describe('login-page', () => {
     await saved.context.close()
 
     const none = await open(browser, 'light', 1280)
-    const noneUrl = await loginUrl(none.page)
+    const noneUrl = await authorizeUrl(none.page)
     log(`LOGIN-10 saved=none ui_locales=${new URL(noneUrl).searchParams.get('ui_locales')} title=${await none.page.title()}`)
     expect(new URL(noneUrl).searchParams.has('ui_locales')).toBe(false)
     await expect(none.page).toHaveTitle(`Sign in to ${BRAND}`)
@@ -322,7 +343,7 @@ test.describe('login-page', () => {
 
     // Nothing saved and a Vietnamese browser: Keycloak follows the browser.
     const browserVi = await open(browser, 'light', 1280, 'vi-VN')
-    const browserViUrl = await loginUrl(browserVi.page)
+    const browserViUrl = await authorizeUrl(browserVi.page)
     log(`LOGIN-10 saved=none browser=vi-VN ui_locales=${new URL(browserViUrl).searchParams.get('ui_locales')} title=${await browserVi.page.title()}`)
     expect(new URL(browserViUrl).searchParams.has('ui_locales')).toBe(false)
     await expect(browserVi.page).toHaveTitle(`Đăng nhập vào ${BRAND}`)
