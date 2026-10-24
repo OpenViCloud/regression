@@ -5,7 +5,7 @@ import { RUN, createVm, deleteVmAndWait, envOf, runNetwork, runs, waitVm, waitVo
 
 // Cases BIL-01..08 and BIL-10..13, BIL-15 of plan.md. Money moves only on admin-test's tenant, through
 // invoices seed-invoices.sql made before this job (the agent runs it); BIL-14 is check-wallets.sql, run after.
-// Usage (BIL-01..03) is metered on beta-user: metering moves no money.
+// Usage (BIL-01..03) is metered on the lane's tenant (beta-user-2 in lane b): metering moves no money.
 
 // OpenViCloud/titan-control-plane:Titan.Application/Options/BillingMeterOptions.cs (IntervalMinutes) — one tick every 10 minutes by default
 const TICK_MS = 10 * 60_000
@@ -193,7 +193,7 @@ test.describe.serial('billing', () => {
     expectStatus(reply, 200)
   })
 
-  // Metering, on beta-user (no money moves). OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs
+  // Metering, on the lane's tenant (no money moves). OpenViCloud/titan-control-plane:Titan.Infrastructure/Repositories/VmRepository.cs
   // ListBillableAsync — Running, Ready, Frozen, Error are billed; Stopped is not (OpenViCloud/titan-ops:docs/features/vm/design.md#counting-and-billing)
   test('BIL-01..03 a running VM gets RUNNING_VM usage at the tier price, a 10 GB volume gets storage usage, a stopped VM gets no more', async () => {
     const { smallTier, zoneId, volumeOfferingId } = await envOf()

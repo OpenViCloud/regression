@@ -3,7 +3,7 @@ import { closeSessions, useBrowser } from './auth'
 import { bodyOf, call, expectStatus, get, log, newKey, pollUntil, sleep, startLog } from './api'
 import { RUN, envOf, runNetwork, waitVolume } from './fixtures'
 
-// Case BIL-16 of plan.md. Metered on beta-user, like BIL-01..03 (billing.spec.ts): money moves only
+// Case BIL-16 of plan.md. Metered on the lane's tenant, like BIL-01..03 (billing.spec.ts): money moves only
 // on admin-test (CLAUDE.md), and storage usage here produces no invoice or wallet movement.
 //
 // OpenViCloud/titan-control-plane:Titan.Application/Options/BillingMeterOptions.cs (IntervalMinutes) — one tick every 10 minutes by default.

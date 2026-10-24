@@ -4,7 +4,7 @@ import { call, expectStatus, get, log, pollUntil, startLog } from './api'
 import { deleteVmAndWait, existenceShape, readVolume, waitNetwork, waitVolume } from './fixtures'
 
 // Case CLN-01 of plan.md (CLN-02 reads the Incus host). Runs after every module that leaves rg-* resources: removes every
-// rg-* resource of beta-user a module left behind, and the tfacc-* ones a red terraform-provider run left (that module
+// rg-* resource of the lane's tenant a module left behind, and the tfacc-* ones a red terraform-provider run left (that module
 // runs after this one, so a red run is followed by one more cleanup job), in an order Titan accepts — load balancers (a VM a live
 // one sends to refuses its delete: OpenViCloud/titan-ops:docs/features/load-balancer/design.md#lb-and-vm-network), rules, VMs (their snapshots go
 // with them, attached volumes are released: OpenViCloud/titan-ops:docs/features/volume/design.md#vm-delete-releases-volumes), volume snapshots,
