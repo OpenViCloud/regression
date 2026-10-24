@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import pathlib
+import re
 import tempfile
 import threading
 import time
@@ -240,6 +241,34 @@ class PlanValidationTest(unittest.TestCase):
             run_lanes.load_plan(plan_of({"a": lane({"module": "vm", "signal": "x"})}))
 
 
+def shared_data_rows(markdown):
+    """{module: {lanes}} from the table under `## Dữ liệu dùng chung giữa các lane`: `| `module` | a, b | … |`."""
+    section = markdown.split("## Dữ liệu dùng chung giữa các lane", 1)
+    if len(section) != 2:
+        raise AssertionError("no section 'Dữ liệu dùng chung giữa các lane'")
+    rows = {}
+    for line in section[1].split("\n## ", 1)[0].splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) >= 4 and re.fullmatch(r"`[a-z-]+`", cells[1]):
+            rows[cells[1].strip("`")] = {lane.strip() for lane in cells[2].split(",")}
+    return rows
+
+
+class SameLaneTest(unittest.TestCase):
+    """Modules that take from one zone-wide pool (an IPv6 /64) must not be spread over lanes."""
+
+    def test_modules_of_a_same_lane_group_in_two_lanes_are_refused(self):
+        plan = plan_of({"a": lane(m("load-balancer")), "b": lane(m("terraform-provider"))},
+                       same_lane=[["load-balancer", "terraform-provider"]])
+        with self.assertRaises(run_lanes.PlanError) as caught:
+            run_lanes.load_plan(plan)
+        self.assertIn("load-balancer", str(caught.exception))
+
+    def test_modules_of_a_same_lane_group_in_one_lane_are_accepted(self):
+        run_lanes.load_plan(plan_of({"a": lane(m("load-balancer"), m("terraform-provider")), "b": lane(m("billing"))},
+                                    same_lane=[["load-balancer", "terraform-provider"]]))
+
+
 README = """## Modules and order
 
 | # | Module | Measures | Dev | Staging | Spec |
@@ -331,9 +360,30 @@ class RepoPlanTest(unittest.TestCase):
             self.assertEqual(steps[0], {"module": "smoke"})
             self.assertEqual(steps[1], {"barrier": "smoke"})
 
-    def test_billing_and_concurrency_are_declared_exclusive_and_the_plan_orders_them(self):
-        self.assertTrue(any({"billing", "concurrency"} <= set(group) for group in self.body["exclusive"]))
+    def test_the_wallet_pair_and_the_pending_topup_pair_are_declared_exclusive(self):
+        groups = [set(group) for group in self.body["exclusive"]]
+        self.assertIn({"billing", "concurrency"}, groups)
+        self.assertIn({"billing", "admin"}, groups)
         run_lanes.load_plan(self.body)
+
+    def test_contract_moves_no_wallet_and_is_in_no_exclusive_group(self):
+        self.assertFalse(any("contract" in group for group in self.body["exclusive"]))
+
+    def test_the_modules_that_take_an_ipv6_block_share_a_lane(self):
+        groups = [set(group) for group in self.body["same_lane"]]
+        self.assertIn({"load-balancer", "portal-ui", "terraform-provider"}, groups)
+        run_lanes.load_plan(self.body)
+
+    def test_the_shared_data_table_of_claude_md_has_one_row_per_module_and_the_lanes_of_lanes_json(self):
+        rows = shared_data_rows((HERE / "CLAUDE.md").read_text())
+        actual = {}
+        for lane_name, steps in self.plan.lanes.items():
+            for step in steps:
+                if step.kind == "module" and not step.label:
+                    actual.setdefault(step.name, set()).add(lane_name)
+        self.assertEqual(sorted(rows), sorted(actual), "one row per module of lanes.json, none more")
+        for module, lanes in actual.items():
+            self.assertEqual(rows[module], lanes, f"{module}: lane column")
 
 
 if __name__ == "__main__":

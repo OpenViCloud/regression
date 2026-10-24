@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { ADMIN, closeSessions, pageOf, useBrowser } from './auth'
 import { bodyOf, call, expectStatus, get, log, newKey, pollUntil, RESULTS, startLog } from './api'
 import { RUN } from './fixtures'
@@ -22,6 +22,13 @@ test.describe.serial('admin-portal', () => {
   let tenantId = ''
   let tenantName = ''
   let originalDebtCeiling: number | null = null
+
+  // hasText is a substring match: with two test tenants, the row of `beta-user` would also match `beta-user-2`.
+  // The cells of a row read back without separators (`beta-userActive`), so only a `-<word>` continuation is refused.
+  function tenantRowOf(page: Page) {
+    const escaped = tenantName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return page.getByRole('row').filter({ hasText: new RegExp(`${escaped}(?!-\\w)`) })
+  }
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(10 * 60_000)
@@ -113,7 +120,7 @@ test.describe.serial('admin-portal', () => {
 
     const page = await pageOf('admin')
     await page.goto(ADMIN + '/tenants', { waitUntil: 'networkidle' })
-    const row = page.getByRole('row').filter({ hasText: tenantName })
+    const row = tenantRowOf(page)
     await expect(row).toBeVisible()
 
     // Edit quota dialog: every cap input seeded from the same row GET /v1/tenants returned.
@@ -152,7 +159,7 @@ test.describe.serial('admin-portal', () => {
     // out-of-band PATCH, so only a fresh load proves the table shows the old value again.
     expectStatus(await call('admin', 'PATCH', `/v1/tenants/${tenantId}/debt-ceiling`, { debtCeiling: originalDebtCeiling }), 204)
     await page.reload({ waitUntil: 'networkidle' })
-    const rowAfter = page.getByRole('row').filter({ hasText: tenantName })
+    const rowAfter = tenantRowOf(page)
     if (originalDebtCeiling === 9000000) {
       log('ADM-09 original debt ceiling was already 9,000,000 ₫: the restore check cannot show a difference')
     } else {

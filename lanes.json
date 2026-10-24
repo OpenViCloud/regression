@@ -3,7 +3,8 @@
   "abort_on": ["smoke"],
   "agent_side": ["worker", "control-plane-image"],
   "per_lane": ["smoke", "cleanup"],
-  "exclusive": [["billing", "concurrency", "contract", "admin"]],
+  "exclusive": [["billing", "concurrency"], ["billing", "admin"]],
+  "same_lane": [["load-balancer", "portal-ui", "terraform-provider"]],
   "lanes": {
     "a": {
       "cronjob": "titan-regression",
@@ -20,8 +21,8 @@
         {"module": "tenant"},
         {"module": "api-token"},
         {"module": "cli"},
-        {"wait": "billing-done"},
         {"module": "contract"},
+        {"wait": "billing-done"},
         {"module": "concurrency"},
         {"external": "check-wallets"},
         {"module": "admin"},
