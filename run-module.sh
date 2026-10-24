@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # One regression module in the cluster, steps 1-5 of §Runner in OpenViCloud/titan-ops:.claude/commands/release/regression.md:
-# load lib + module into ConfigMap titan-regression-specs, create a job from CronJob titan-regression, wait for
-# /work/results/.done (or the pod ending), copy the results, compare sha256 file by file, delete the job.
+# load lib + module into ConfigMap titan-regression-specs-<job>, create the job from CronJob $REGRESSION_CRONJOB
+# (default titan-regression), wait for /work/results/.done (or the pod ending), copy the results, compare sha256 file
+# by file, delete the job and its ConfigMap. A job kept for a look (the exit 1 paths below) keeps its ConfigMap: after
+# `kubectl delete job <job>` by hand, `kubectl delete configmap titan-regression-specs-<job>` too.
 # The runner's output (runner.log, results/, sha lists) goes to <work dir>, which is not committed: the
 # regression report holds the result. control-plane.log and incus-worker.log since the job was created go to
 # <log dir> (system logs, for diagnosis; the verdict comes from the specs), and so do the UI cases' screenshots
@@ -17,8 +19,8 @@
 #   <module>      a module of this repository (vm), or a spec directory relative to <src tree>
 #   <label>       suffix of the job name: regression-<module>-<label>
 #   <work dir>    runner output, outside the repo (scratchpad)
-#   <log dir>     control-plane.log + incus-worker.log + <ID>-*.png: release evidence/<module>/ (its *.png are
-#                 deleted first)
+#   <log dir>     control-plane.log + incus-worker.log + <ID>-*.png: release evidence/<module>[-<lane>][-<step label>]/
+#                 (run-lanes.py adds the lane for a module both lanes run); its *.png are deleted first
 # Exit 0 = REGRESSION_EXIT=0 and every result file copied with a matching sha256. A sha256 mismatch keeps the job
 # for a chunked copy.
 set -uo pipefail
@@ -38,6 +40,8 @@ case "$module" in
   *) spec_dir="$module"; name="$module" ;;
 esac
 job="regression-${name}-${label}"
+cronjob="${REGRESSION_CRONJOB:-titan-regression}"
+specs_cm="titan-regression-specs-${job}"
 mkdir -p "$out" "$logs_dir"
 out="$(cd "$out" && pwd)"
 logs_dir="$(cd "$logs_dir" && pwd)"
@@ -81,14 +85,16 @@ runner_state="clean"
 if ! git -C "$runner_dir" diff --quiet HEAD -- "$runner_dir/run-module.sh"; then runner_state="dirty"; fi
 echo "runner: run-module.sh blob=$(git -C "$runner_dir" hash-object "$runner_dir/run-module.sh") head=$(git -C "$runner_dir" rev-parse --short HEAD) $runner_state"
 echo "cluster: $(k config view --minify -o 'jsonpath={.clusters[0].cluster.server}')"
-echo "module: $name specs: $spec_dir job: $job start: $(date -u +%H:%M:%S)"
+echo "module: $name specs: $spec_dir job: $job cronjob: $cronjob start: $(date -u +%H:%M:%S)"
 cd "$src" || exit 2
 if [ ! -d "$spec_dir" ]; then echo "no spec directory $src/$spec_dir" >&2; exit 2; fi
 
-k -n "$ns" create configmap titan-regression-specs \
+k -n "$ns" create configmap "$specs_cm" \
   --from-file=lib --from-file="$spec_dir" --dry-run=client -o yaml | k -n "$ns" apply -f - || exit 2
 since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-k -n "$ns" create job "$job" --from=cronjob/titan-regression || exit 2
+# pipefail: a failing kubectl, patch-job.py or create all end in `exit 2`.
+k -n "$ns" create job "$job" --from="cronjob/$cronjob" --dry-run=client -o json \
+  | python3 "$runner_dir/patch-job.py" "$specs_cm" | k -n "$ns" create -f - || exit 2
 
 pod=""; phase=""
 for _ in $(seq 1 120); do
@@ -152,5 +158,6 @@ fi
 # in <work dir> too, for a module run in the background.
 python3 "$runner_dir/check-screenshots.py" "$spec_dir" "$logs_dir" "$out/runner.log" | tee "$out/screenshots.txt"
 k -n "$ns" delete job "$job" --wait=true
+k -n "$ns" delete configmap "$specs_cm" --ignore-not-found
 echo "end: $(date -u +%H:%M:%S)"
 exit "$status"

@@ -33,3 +33,9 @@ jobs:
 
       - name: trim-cp-log.py
         run: python3 test_trim_cp_log.py
+
+      - name: patch-job.py
+        run: python3 test_patch_job.py
+
+      - name: run-lanes.py
+        run: python3 test_run_lanes.py && python3 run-lanes.py --check

@@ -20,6 +20,8 @@ which signs in with the test accounts there, so no credential passes through the
 | `count-cases.py` | Counts `plan.md`'s IDs against the runner logs, for the report's first line |
 | `check-screenshots.py` | Fails when a browser case passed without its `<ID>-*.png` screenshot |
 | `trim-cp-log.py` | Drops the control plane's routine info lines from a saved log |
+| `run-lanes.py`, `lanes.json` | Runs the modules as lanes, one lane per test tenant, lanes side by side (below) |
+| `patch-job.py` | Points a job's `specs` volume at a ConfigMap of its own, so jobs started together never read each other's specs |
 | `selftest/`, `test_*.py` | Tests of the helpers and scripts above |
 | [`CLAUDE.md`](CLAUDE.md) | How specs are written and the assumptions a run on staging makes |
 
@@ -34,6 +36,34 @@ The source tree is `git archive <sha>` of this repository, extracted, with any n
 script from a checkout so its first line names the commit. The full procedure (order, steps outside the runner, evidence) is
 [`release:regression`](https://github.com/OpenViCloud/titan-ops/blob/main/.claude/commands/release/regression.md).
 
+## Run the lanes
+
+`beta-user` may hold one network and one quota, so one tenant runs one module at a time. The run is split in two lanes, each
+with a tenant of its own (`beta-user`, `beta-user-2`) and a CronJob of its own (`titan-regression`, `titan-regression-b`).
+`lanes.json` says which module runs in which lane and where a lane waits for the other (`barrier`, `signal`/`wait`,
+`external` for what the agent does outside the runner). It refuses a plan in which two modules that move the same wallet
+(`exclusive`) may run together, and every run (`--check` stops after this) checks it against the table below: every
+module the runner runs on staging is in exactly one lane, except `smoke` and `cleanup`, which each lane runs for its own
+tenant (and `cleanup` runs once more after a red `terraform-provider`). At most `max_pods` jobs run at once: staging is one small node. The second lane needs the test tenant
+`beta-user-2` and the CronJob `titan-regression-b` in the cluster.
+
+```sh
+python3 run-lanes.py --kubeconfig <kubeconfig> --src <source tree> --out <work dir> --logs <evidence dir> --label <run> [--binary cli=<path>] [--binary terraform-provider=<path>] [--max-pods N]
+```
+
+A red module (or an `external` step that times out) skips the rest of its lane except steps marked `always` or
+`only_if_failed` (`cleanup`); signals, waits and barriers still run, so the other lane never hangs. A red `smoke` stops
+both lanes before any later step, `cleanup` included.
+
+The `external` steps are done by the agent, who creates `<external dir>/<step>.done` when finished (`--external-dir`,
+default `<work dir>/external`; `--external-timeout-minutes`, default 90): `seed-invoices` (`billing/seed-invoices.sql`
+before `billing`), `check-wallets` (`billing/check-wallets.sql` after `concurrency`), `phase4` (the
+Phase 4 cases the runner cannot run: Incus-host observations, the public site, the `worker` and `control-plane-image` reads).
+
+Output: `<work dir>/<lane>/<module>[-<step label>]/` holds `run.log` and the module's `runner.log` (give those to `count-cases.py`);
+`<evidence dir>/<module>/` holds the system logs and screenshots; `smoke` and `cleanup` run in every lane, so theirs are
+`<module>-<lane>/` (`smoke-a`, `cleanup-b`), and a second run of a module with a step label adds it last (`cleanup-a-after-tf`).
+
 ## Test the tooling
 
 Needs Node 22.18 or later (it strips the TypeScript types without a flag; CI pins 22.23.3) and Python 3. CI runs the same:
@@ -43,11 +73,14 @@ node --test 'selftest/*.test.ts'
 python3 test_count_cases.py
 python3 test_check_screenshots.py
 python3 test_trim_cp_log.py
+python3 test_patch_job.py
+python3 test_run_lanes.py
+python3 run-lanes.py --check
 ```
 
 ## Modules and order
 
-Rows the runner runs go in this order, one job each: a later module may use what an earlier one left in the run (the run's network); the
+Rows the runner runs go in this order within a lane (`lanes.json` says which module is in which lane), one job each: a later module may use what an earlier one left in the run (the run's network); the
 module that changes the tenant's state and the one that deletes the run's network come after every module that uses them,
 `cleanup` after every module that leaves `rg-*` resources, and `terraform-provider` after `cleanup`, because its tests
 create a network and beta-user may hold one.

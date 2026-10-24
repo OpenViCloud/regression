@@ -1,0 +1,50 @@
+{
+  "max_pods": 2,
+  "abort_on": ["smoke"],
+  "agent_side": ["worker", "control-plane-image"],
+  "per_lane": ["smoke", "cleanup"],
+  "exclusive": [["billing", "concurrency", "contract", "admin"]],
+  "lanes": {
+    "a": {
+      "cronjob": "titan-regression",
+      "steps": [
+        {"module": "smoke"},
+        {"barrier": "smoke"},
+        {"module": "catalog"},
+        {"module": "network"},
+        {"module": "firewall"},
+        {"module": "vm"},
+        {"module": "vm-snapshot"},
+        {"module": "volume"},
+        {"module": "load-balancer"},
+        {"module": "tenant"},
+        {"module": "api-token"},
+        {"module": "cli"},
+        {"wait": "billing-done"},
+        {"module": "contract"},
+        {"module": "concurrency"},
+        {"external": "check-wallets"},
+        {"module": "admin"},
+        {"module": "portal-ui"},
+        {"module": "tenant-suspend"},
+        {"module": "network-lifecycle"},
+        {"module": "login-page"},
+        {"module": "cleanup", "always": true},
+        {"module": "terraform-provider"},
+        {"module": "cleanup", "label": "after-tf", "only_if_failed": "terraform-provider"}
+      ]
+    },
+    "b": {
+      "cronjob": "titan-regression-b",
+      "steps": [
+        {"module": "smoke"},
+        {"barrier": "smoke"},
+        {"external": "seed-invoices"},
+        {"module": "billing"},
+        {"signal": "billing-done"},
+        {"external": "phase4"},
+        {"module": "cleanup", "always": true}
+      ]
+    }
+  }
+}
