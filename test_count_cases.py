@@ -81,5 +81,25 @@ class Tally(unittest.TestCase):
         self.assertEqual(extra, ["ZZ-09"])
 
 
+class TwoLanes(unittest.TestCase):
+    """Both lanes' runner.log go into one count: an ID is counted once, with its worst mark."""
+
+    LANE_A = "  ✓  1 [chromium] › e2e/smoke.spec.ts:10:7 › smoke › SMOKE-01..02 health (1s)\n" + \
+             "  ✓  2 [chromium] › e2e/firewall.spec.ts:84:7 › firewall › FW-01 rule (1s)\n"
+    LANE_B = "  ✓  1 [chromium] › e2e/smoke.spec.ts:10:7 › smoke › SMOKE-01 health (1s)\n" + \
+             "  ✘  2 [chromium] › e2e/smoke.spec.ts:20:7 › smoke › SMOKE-02 zones (1s)\n"
+
+    def test_an_id_both_lanes_ran_is_counted_once_with_the_worst_mark(self):
+        merged = count_cases.merge_marks([count_cases.log_marks(self.LANE_A), count_cases.log_marks(self.LANE_B)])
+        self.assertEqual(merged["SMOKE-01"], "pass")
+        self.assertEqual(merged["SMOKE-02"], "fail")
+        rows, _, _ = count_cases.tally(count_cases.plan_ids(PLAN), merged)
+        self.assertEqual((rows["smoke"]["pass"], rows["smoke"]["fail"]), (1, 1))
+
+    def test_the_order_of_the_logs_does_not_matter(self):
+        a, b = count_cases.log_marks(self.LANE_A), count_cases.log_marks(self.LANE_B)
+        self.assertEqual(count_cases.merge_marks([a, b]), count_cases.merge_marks([b, a]))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

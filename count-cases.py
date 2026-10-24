@@ -66,6 +66,17 @@ def log_marks(text):
     return marks
 
 
+def merge_marks(per_log):
+    """One {ID: mark} from many logs (the two lanes', a re-run's): worst mark per ID."""
+    marks = {}
+    for log in per_log:
+        for case_id, mark in log.items():
+            old = marks.get(case_id)
+            if old is None or WORST_FIRST.index(mark) < WORST_FIRST.index(old):
+                marks[case_id] = mark
+    return marks
+
+
 def tally(modules, marks):
     """(rows per module, unseen IDs per module, IDs in logs but not in the plan)."""
     rows = {}
@@ -93,12 +104,8 @@ def main(argv):
     args = parser.parse_args(argv)
 
     modules = plan_ids(pathlib.Path(args.plan).read_text(encoding="utf-8"))
-    marks = {}
-    for log in args.logs:
-        for case_id, mark in log_marks(pathlib.Path(log).read_text(encoding="utf-8", errors="replace")).items():
-            old = marks.get(case_id)
-            if old is None or WORST_FIRST.index(mark) < WORST_FIRST.index(old):
-                marks[case_id] = mark
+    marks = merge_marks([log_marks(pathlib.Path(log).read_text(encoding="utf-8", errors="replace"))
+                         for log in args.logs])
     rows, unseen, extra = tally(modules, marks)
 
     total = {"plan": 0, "pass": 0, "fail": 0, "skip": 0, "unseen": 0}

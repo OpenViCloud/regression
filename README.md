@@ -60,11 +60,12 @@ both lanes before any later step, `cleanup` included.
 The `external` steps are done by the agent, who creates `<external dir>/<step>.done` when finished (`--external-dir`,
 default `<work dir>/external`; `--external-timeout-minutes`, default 90): `seed-invoices` (`billing/seed-invoices.sql`
 before `billing`), `check-wallets` (`billing/check-wallets.sql` after `concurrency`), `phase4` (the
-Phase 4 cases the runner cannot run: Incus-host observations, the public site, the `worker` and `control-plane-image` reads).
+Incus-host observation spec of Phase 4, which the runner cannot drive: the agent runs it in lane b's tenant and does the host commands; the public site, the `worker` and `control-plane-image` reads are measured once, in the sequential run).
 
 Output: `<work dir>/<lane>/<module>[-<step label>]/` holds `run.log` and the module's `runner.log` (give those to `count-cases.py`);
 `<evidence dir>/<module>/` holds the system logs and screenshots; `smoke` and `cleanup` run in every lane, so theirs are
 `<module>-<lane>/` (`smoke-a`, `cleanup-b`), and a second run of a module with a step label adds it last (`cleanup-a-after-tf`).
+`run-lanes.py` tells `run-module.sh` the lane (`REGRESSION_LANE`), and the first line of each system log carries it: `(lane a)`, `(lane b)`, or `(lane sequential)` for a module run by hand. The pods' logs since the job started also hold the other lane's requests. `count-cases.py` takes every lane's `runner.log` in one call and counts an ID once, by its worst mark.
 
 ## Test the tooling
 

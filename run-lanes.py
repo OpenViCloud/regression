@@ -282,7 +282,7 @@ def log_dir(logs, lane, module, label, per_lane):
 
 
 class ClusterRunner:
-    """One module = `bash run-module.sh …` with REGRESSION_CRONJOB naming the lane's CronJob."""
+    """One module = `bash run-module.sh …` with REGRESSION_CRONJOB naming the lane's CronJob and REGRESSION_LANE its name."""
 
     def __init__(self, kubeconfig, src, out, logs, label, binaries, per_lane):
         self.kubeconfig, self.src, self.out, self.logs = kubeconfig, src, pathlib.Path(out), pathlib.Path(logs)
@@ -301,7 +301,7 @@ class ClusterRunner:
         print(f"[{lane}] {module}{suffix} start {started} UTC", flush=True)
         with open(work / "run.log", "w") as log:
             code = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT,
-                                  env={**os.environ, "REGRESSION_CRONJOB": cronjob}).returncode
+                                  env={**os.environ, "REGRESSION_CRONJOB": cronjob, "REGRESSION_LANE": lane}).returncode
         print(f"[{lane}] {module}{suffix} exit {code} end {time.strftime('%H:%M:%S', time.gmtime())} UTC", flush=True)
         return code
 

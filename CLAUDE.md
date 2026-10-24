@@ -12,7 +12,7 @@ Repo này không có hệ thống nào để chạy: spec chạy bằng runner `
 ├── plan.md          # mọi case: ID, kỳ vọng, nguồn
 ├── run-module.sh    # một module = một job runner: nạp spec, chờ .done, chép kết quả + so sha256, xoá job và ConfigMap của nó;
 │                   #   kubeconfig là tham số đầu (staging hay dev), $REGRESSION_CRONJOB chọn CronJob của lane (mặc định
-│                   #   titan-regression), ConfigMap spec riêng mỗi job (titan-regression-specs-<job>),
+│                   #   titan-regression), $REGRESSION_LANE (a, b; mặc định sequential) là nhãn ở dòng đầu log pod, ConfigMap spec riêng mỗi job (titan-regression-specs-<job>),
 │                   #   cli và terraform-provider: chép binary khi BINARY_WAIT;
 │                   #   output runner vào thư mục làm việc (không commit), log control-plane + incus-worker
 │                   #   vào thư mục log, in `runner: … blob=<id>`; chép ảnh UI case (results/*.png) vào thư mục log
