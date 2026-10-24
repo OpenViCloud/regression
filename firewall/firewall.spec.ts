@@ -70,15 +70,21 @@ test.describe.serial('firewall', () => {
 
   test.afterAll(async () => {
     test.setTimeout(15 * 60_000)
+    // A rule whose delete failed is not polled for Gone: each poll can take minutes, and the time limit of this hook
+    // would end it before the sessions close and before cleanUp reports.
+    const deleted: string[] = []
     const steps: Array<[string, () => Promise<void>]> = []
     for (const id of made) {
-      steps.push([`delete rule ${id}`, () => deleteWhenReady(id)])
-    }
-    for (const id of made) {
-      steps.push([`rule ${id} gone`, async () => {
-        await pollUntil(`rule ${id} gone`, () => readRule(id), (r) => r.currentExistence === 'Gone', ruleShape)
+      steps.push([`delete rule ${id}`, async () => {
+        await deleteWhenReady(id)
+        deleted.push(id)
       }])
     }
+    steps.push(['deleted rules gone', async () => {
+      for (const id of deleted) {
+        await pollUntil(`rule ${id} gone`, () => readRule(id), (r) => r.currentExistence === 'Gone', ruleShape)
+      }
+    }])
     steps.push(['close sessions', closeSessions])
     await cleanUp(steps)
   })

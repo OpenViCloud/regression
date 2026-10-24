@@ -20,9 +20,9 @@ import { newSecret } from './token'
 // any failed test in this file (workers: 1, fullyParallel: false — OpenViCloud/titan-ops:gitops/regression-runner/runner-configmap.yaml),
 // which drops module state (authUrl, browserRef) and re-runs only the hooks of describes that still have tests
 // left — a root-level beforeAll runs again, a nested one does not. The CLI's own session lives on disk under
-// CLI_HOME and survives a worker restart, so login happens at most once; CLI-11's known failure (SSH-REFUSAL-EDGE)
-// must not skip CLI-12..18 or CLI-04, so those sit in their own describes, not CLI-06..11's serial chain. CLI-04 is
-// last of all five because it logs the CLI out.
+// CLI_HOME and survives a worker restart, so login happens at most once. A red case in CLI-06..11's serial chain
+// skips the rest of the chain, so CLI-05, CLI-12..18 and CLI-04 sit in their own describes. CLI-10, the long idle
+// session the edge sometimes cuts, is last of the chain. CLI-04 is last of all five because it logs the CLI out.
 const BINARY = '/work/bin/openvicloud'
 const CLI_HOME = '/work/cli-home'
 
@@ -409,17 +409,15 @@ test.describe.serial('cli', () => {
     expect(stopped.code).not.toBe(0)
     expect(stopped.stderr).toContain('(VM_INVALID_STATUS)')
     expect(countOf(await activityOf(VM_NAME), 'vm.ssh_requested')).toBe(before)
-
-    // CLI-10 runs after this case, on the same VM: start it again and wait until ssh answers.
-    expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmId}/start`), 202)
-    await waitVm(`CLI-11 ${VM_NAME} running again`, vmId, (v) => runs(v))
-    const again = await sshOnceUp('CLI-11', 'yes')
-    expect(again.code, again.stderr).toBe(0)
   })
 
-  // Last of the chain: if the edge cuts this long session, no later case goes unmeasured.
+  // Last of the chain: if the edge cuts this long session, no later case goes unmeasured. CLI-11 left the VM stopped.
   // OpenViCloud/titan-control-plane:Titan.Infrastructure/Sessions/ShellRelay.cs ShellRelayOptions.Default (IdleTimeout): only 30 minutes without a byte either way ends a session
   test('CLI-10 a session with no byte for 5 minutes stays open', async () => {
+    expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmId}/start`), 202)
+    await waitVm(`CLI-10 ${VM_NAME} running again`, vmId, (v) => runs(v))
+    const up = await sshOnceUp('CLI-10', 'yes')
+    expect(up.code, up.stderr).toBe(0)
     const started = Date.now()
     const result = await vmSsh('rg-key', 'yes', ['sleep 330; echo alive'])
     const seconds = Math.round((Date.now() - started) / 1000)
@@ -430,18 +428,22 @@ test.describe.serial('cli', () => {
   })
 
   test.afterAll(async () => {
+    const steps: Array<[string, () => Promise<void>]> = []
     if (vmId !== '') {
-      await deleteVmAndWait(vmId)
+      steps.push([`delete VM ${vmId}`, () => deleteVmAndWait(vmId)])
     }
     if (keyId !== '') {
-      expectStatus(await call('tenant', 'DELETE', `/v1/tenant/ssh-keys/${keyId}`), 204)
+      steps.push([`delete SSH key ${keyId}`, async () => {
+        expectStatus(await call('tenant', 'DELETE', `/v1/tenant/ssh-keys/${keyId}`), 204)
+      }])
     }
+    await cleanUp(steps)
   })
 })
 
 // --- CLI-05: catalog commands, matched field by field against the API they read -------------------------------
-// Runs outside the serial VM/ssh chain: a catalog read does not depend on CLI-06..11, and must not be skipped by
-// CLI-11's known failure (SSH-REFUSAL-EDGE, still open at the last release).
+// Runs outside the serial VM/ssh chain: a catalog read does not depend on CLI-06..11, and must not be skipped when a
+// case of that chain goes red.
 test.describe('cli catalog', () => {
   // OpenViCloud/titan-cli:command/catalog/catalog.go NewZone (zone list) ·
   // OpenViCloud/titan-ops:docs/architecture/money-and-wallet.md#money-is-long-vnd (the money-of-tenant part
