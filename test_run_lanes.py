@@ -336,6 +336,41 @@ class EvidenceDirTest(unittest.TestCase):
                             run_lanes.log_dir(root, "a", "cleanup", "after-tf", {"cleanup"}))
 
 
+class ClusterRunnerTest(unittest.TestCase):
+    """What the job script is told: the CronJob of the lane and the lane's name (its evidence logs carry it)."""
+
+    def call(self, lane, cronjob):
+        seen = {}
+
+        def fake_run(command, **kw):
+            seen["env"] = kw["env"]
+            return type("Done", (), {"returncode": 0})()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = run_lanes.ClusterRunner("kc", "src", tmp, tmp, "r1", {}, set())
+            original = run_lanes.subprocess.run
+            run_lanes.subprocess.run = fake_run
+            try:
+                runner(lane, cronjob, "billing", "")
+            finally:
+                run_lanes.subprocess.run = original
+        return seen["env"]
+
+    def test_the_job_script_gets_the_cronjob_and_the_lane_name(self):
+        env = self.call("b", "titan-regression-b")
+        self.assertEqual(env["REGRESSION_CRONJOB"], "titan-regression-b")
+        self.assertEqual(env["REGRESSION_LANE"], "b")
+
+
+class JobScriptTest(unittest.TestCase):
+    def test_the_system_logs_name_their_lane_on_the_first_line(self):
+        script = (HERE / "run-module.sh").read_text()
+        self.assertIn('lane="${REGRESSION_LANE:-sequential}"', script)
+        header = [line for line in script.splitlines() if line.lstrip().startswith('echo "# kubectl logs')]
+        self.assertEqual(len(header), 1)
+        self.assertIn("(lane $lane)", header[0])
+
+
 class RepoPlanTest(unittest.TestCase):
     """The lanes.json this repository ships."""
 

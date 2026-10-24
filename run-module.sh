@@ -8,7 +8,8 @@
 # regression report holds the result. control-plane.log and incus-worker.log since the job was created go to
 # <log dir> (system logs, for diagnosis; the verdict comes from the specs), and so do the UI cases' screenshots
 # (results/*.png): they are the evidence of those cases. check-screenshots.py then names every UI case that passed
-# with no <ID>-*.png. The first line names the runner's git blob, so evidence/ never needs a copy of this script.
+# with no <ID>-*.png. The first line of each system log names its lane (REGRESSION_LANE: a, b, or sequential for a module
+# run by hand): those pods' logs also hold the other lane's requests. The first line names the runner's git blob, so evidence/ never needs a copy of this script.
 # For modules cli and terraform-provider, pass the binary built for the node's architecture (the openvicloud CLI, or
 # `go test -c` of the provider): it is copied into the pod as /work/bin/openvicloud when the runner logs BINARY_WAIT.
 #
@@ -31,6 +32,7 @@ if [ "$#" -lt 6 ] || [ "$#" -gt 7 ]; then
 fi
 kc="$1"; src="$2"; module="$3"; label="$4"; out="$5"; logs_dir="$6"; bin="${7:-}"
 ns="titan-auth-staging"
+lane="${REGRESSION_LANE:-sequential}"   # run-lanes.py sets a/b; a module run by hand is the sequential run
 app_ns="titan-staging"
 k() { kubectl --kubeconfig "$kc" "$@"; }
 phase_of() { k -n "$ns" get pod "$1" -o json | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"]["phase"])'; }
@@ -64,7 +66,7 @@ save_app_logs() {
   local app="$1" file="$logs_dir/$1.log" note=""
   if [ "$app" = "control-plane" ]; then note=" | python3 trim-cp-log.py"; fi
   # Header line of §Evidence in OpenViCloud/titan-ops:.claude/commands/release/regression.md (OpenViCloud/titan-ops:scripts/check-evidence.py HEADER).
-  echo "# kubectl logs -n $app_ns <each pod of app=$app> --since-time=$since (+ --previous when restarted)$note · $(k config view --minify -o 'jsonpath={.clusters[0].cluster.server}') · $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$file"
+  echo "# kubectl logs -n $app_ns <each pod of app=$app> --since-time=$since (+ --previous when restarted)$note (lane $lane) · $(k config view --minify -o 'jsonpath={.clusters[0].cluster.server}') · $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$file"
   k -n "$app_ns" get pods -l "app=$app" -o json \
     | python3 -c 'import sys,json
 for p in json.load(sys.stdin)["items"]:
