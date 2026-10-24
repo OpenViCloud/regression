@@ -1,0 +1,81 @@
+{
+  "max_pods": 1,
+  "abort_on": [
+    "smoke"
+  ],
+  "agent_side": [],
+  "per_lane": [
+    "smoke",
+    "cleanup"
+  ],
+  "exclusive": [],
+  "same_lane": [],
+  "lanes": {
+    "a": {
+      "cronjob": "titan-regression",
+      "steps": [
+        {
+          "module": "smoke"
+        },
+        {
+          "barrier": "smoke"
+        },
+        {
+          "module": "catalog"
+        },
+        {
+          "module": "network"
+        },
+        {
+          "module": "firewall"
+        },
+        {
+          "module": "vm"
+        },
+        {
+          "module": "vm-snapshot"
+        },
+        {
+          "module": "volume"
+        },
+        {
+          "module": "cleanup",
+          "always": true
+        }
+      ]
+    },
+    "b": {
+      "cronjob": "titan-regression-b",
+      "steps": [
+        {
+          "module": "smoke"
+        },
+        {
+          "barrier": "smoke"
+        },
+        {
+          "module": "load-balancer"
+        },
+        {
+          "module": "tenant"
+        },
+        {
+          "module": "api-token"
+        },
+        {
+          "module": "cli"
+        },
+        {
+          "module": "network-lifecycle"
+        },
+        {
+          "module": "login-page"
+        },
+        {
+          "module": "cleanup",
+          "always": true
+        }
+      ]
+    }
+  }
+}

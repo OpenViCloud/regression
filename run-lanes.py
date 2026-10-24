@@ -16,7 +16,8 @@ a plan in which two of a group may run together is refused when it is loaded, be
 groups of modules that take from one pool the whole zone shares (an IPv6 block) and must run in one lane.
 
 Usage:
-  python3 run-lanes.py --check                      # lanes.json against README.md, no cluster
+  python3 run-lanes.py --check                      # lanes.json against README.md's Staging column, no cluster
+  python3 run-lanes.py --check --column dev --lanes lanes-dev.json     # a dev plan against the Dev column
   python3 run-lanes.py --kubeconfig <kc> --src <source tree> --out <work dir> --logs <evidence dir> --label <run> \
       [--binary cli=<path>] [--binary terraform-provider=<path>]
 """
@@ -143,20 +144,21 @@ def _refuse_overlaps(plan):
                     raise PlanError(f"{sa.name} (lane {la}) and {sb.name} (lane {lb}) may run at the same time")
 
 
-def readme_modules(readme_text):
-    """Modules whose Staging column says yes, from the README's `| # | Module | Measures | Dev | Staging | Spec |` table."""
+def readme_modules(readme_text, column="staging"):
+    """Modules whose Staging (or Dev) column says yes, from the README's `| # | Module | Measures | Dev | Staging | Spec |` table."""
+    index = {"dev": 4, "staging": 5}[column]
     found = []
     for line in readme_text.splitlines():
         cells = [c.strip() for c in line.split("|")]
         if len(cells) >= 7 and cells[1].isdigit() and re.fullmatch(r"`[a-z-]+`", cells[2]):
-            if cells[5].lower().startswith("yes"):
+            if cells[index].lower().startswith("yes"):
                 found.append(cells[2].strip("`"))
     return found
 
 
-def coverage_problems(plan, readme_text):
+def coverage_problems(plan, readme_text, column="staging"):
     """Every runner module of the README runs exactly once (once per lane for `per_lane` modules, which every tenant needs)."""
-    known = readme_modules(readme_text)
+    known = readme_modules(readme_text, column)
     in_lanes = {lane: [s.name for s in steps if s.kind == "module" and not s.label] for lane, steps in plan.lanes.items()}
     everywhere = [name for names in in_lanes.values() for name in names]
     problems = []
@@ -309,7 +311,9 @@ class ClusterRunner:
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--lanes", default=str(HERE / "lanes.json"))
-    parser.add_argument("--check", action="store_true", help="validate lanes.json against README.md and exit")
+    parser.add_argument("--check", action="store_true", help="validate the plan (--lanes) against the README column (--column) and exit")
+    parser.add_argument("--column", choices=["staging", "dev"], default="staging",
+                        help="README column the plan must cover: staging (lanes.json), dev (give --lanes lanes-dev.json or lanes-dev-sequential.json too)")
     parser.add_argument("--kubeconfig")
     parser.add_argument("--src")
     parser.add_argument("--out")
@@ -326,7 +330,7 @@ def main(argv):
     except PlanError as error:
         print(f"run-lanes.py: {error}", file=sys.stderr)
         return 2
-    problems = coverage_problems(plan, (HERE / "README.md").read_text())
+    problems = coverage_problems(plan, (HERE / "README.md").read_text(), args.column)
     if problems:
         print("run-lanes.py: " + "; ".join(problems), file=sys.stderr)
         return 2

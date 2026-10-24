@@ -23,7 +23,9 @@ Repo này không có hệ thống nào để chạy: spec chạy bằng runner `
 ├── trim-cp-log.py   # run-module.sh lọc control-plane.log: bỏ dòng info của hosting, routing, SQL command (warn/fail và log Titan giữ)
 ├── run-lanes.py     # xếp lịch hai lane (mỗi lane một tenant test, chạy song song): đọc lanes.json, barrier/signal/wait/external,
 │                   #   từ chối lịch để hai module cùng nhóm đụng chung (ví, danh sách topup Pending) chạy chồng hoặc để ba module lấy /64 IPv6 tách lane; --check đối chiếu lanes.json với README
+│                   #   (--column dev --lanes lanes-dev*.json: kế hoạch cho cụm dev, đối chiếu cột Dev)
 ├── lanes.json       # module nào chạy ở lane nào, lane chờ nhau ở đâu
+├── lanes-dev.json, lanes-dev-sequential.json  # cùng thứ cho cụm dev: hai lane / một lane, chỉ module có Dev = yes, max_pods 1
 ├── patch-job.py     # trỏ volume `specs` của một job vào ConfigMap riêng của nó (run-module.sh dùng)
 ├── test_*.py        # test của các script trên — python3 test_count_cases.py …
 ├── selftest/        # test của lib không cần Playwright; ngoài lib/ vì runner chép mọi file của lib/ vào e2e/ và `testMatch`
