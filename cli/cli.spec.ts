@@ -6,6 +6,7 @@ import { PORTAL, closeSessions, useBrowser } from './auth'
 import { startLocalProxyIfNeeded } from './local-proxy'
 import { API, RESULTS, bodyOf, call, expectError, expectStatus, get, log, newKey, sleep, startLog } from './api'
 import { RUN, activityOf, countOf, createVm, deleteVmAndWait, envOf, getVm, runNetwork, runs, vmShape, waitVm } from './fixtures'
+import { cleanUp } from './clean-up'
 import { newSecret } from './token'
 
 // Cases CLI-01..18 of plan.md, in five describes that run in this order: 'cli' (CLI-01..03, CLI-06..11),
@@ -162,6 +163,22 @@ async function vmSsh(key: string, hostKeyCheck: 'accept-new' | 'yes', command: s
   return runCli(['vm', 'ssh', VM_NAME, '--', ...sshOptions(SSH_DIR, key, hostKeyCheck), ...command])
 }
 
+// Right after the VM runs, the guest is still starting: VM_AGENT_NOT_READY, ssh exiting 255 with nothing to say at
+// LogLevel=ERROR, or a refused key. Retries `id -un` for up to 5 minutes and returns the last result.
+async function sshOnceUp(label: string, hostKeyCheck: 'accept-new' | 'yes'): Promise<CliResult> {
+  const deadline = Date.now() + 5 * 60_000
+  let result = await vmSsh('rg-key', hostKeyCheck, ['id', '-un'])
+  while (result.code !== 0 && Date.now() < deadline) {
+    const sshdNotUp = result.code === 255 && result.stderr.trim() === ''
+    const waiting = sshdNotUp || /VM_AGENT_NOT_READY|Permission denied|Connection closed/.test(result.stderr)
+    expect(waiting, `exit=${result.code} stderr=${result.stderr}`).toBe(true)
+    log(`${label} not yet: exit=${result.code} ${result.stderr.trim().slice(0, 160)}`)
+    await sleep(10_000)
+    result = await vmSsh('rg-key', hostKeyCheck, ['id', '-un'])
+  }
+  return result
+}
+
 // scp has no `vm ssh`: it gets the same ProxyCommand and host key alias the CLI gives ssh.
 async function scp(from: string, to: string): Promise<CliResult> {
   attempts++
@@ -310,18 +327,7 @@ test.describe.serial('cli', () => {
     vmId = await createVm(VM_NAME, smallTier, (await runNetwork()).id, { sshKeyIds: [keyId] })
     await waitVm(`CLI-06 ${VM_NAME}`, vmId, (v) => runs(v))
 
-    // Right after the VM runs, the guest is still starting: VM_AGENT_NOT_READY, ssh exiting 255 with nothing to say at
-    // LogLevel=ERROR, or a refused key.
-    const deadline = Date.now() + 5 * 60_000
-    let result = await vmSsh('rg-key', 'accept-new', ['id', '-un'])
-    while (result.code !== 0 && Date.now() < deadline) {
-      const sshdNotUp = result.code === 255 && result.stderr.trim() === ''
-      const waiting = sshdNotUp || /VM_AGENT_NOT_READY|Permission denied|Connection closed/.test(result.stderr)
-      expect(waiting, `exit=${result.code} stderr=${result.stderr}`).toBe(true)
-      log(`CLI-06 not yet: exit=${result.code} ${result.stderr.trim().slice(0, 160)}`)
-      await sleep(10_000)
-      result = await vmSsh('rg-key', 'accept-new', ['id', '-un'])
-    }
+    const result = await sshOnceUp('CLI-06', 'accept-new')
     log(`CLI-06 exit=${result.code} stdout="${result.stdout.trim()}"`)
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout.trim()).toBe('ubuntu')
@@ -381,17 +387,6 @@ test.describe.serial('cli', () => {
     expect(result.code).toBe(7)
   })
 
-  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Sessions/ShellRelay.cs ShellRelayOptions.Default (IdleTimeout): only 30 minutes without a byte either way ends a session
-  test('CLI-10 a session with no byte for 5 minutes stays open', async () => {
-    const started = Date.now()
-    const result = await vmSsh('rg-key', 'yes', ['sleep 330; echo alive'])
-    const seconds = Math.round((Date.now() - started) / 1000)
-    log(`CLI-10 exit=${result.code} stdout="${result.stdout.trim()}" after ${seconds} s`)
-    expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout.trim()).toBe('alive')
-    expect(seconds).toBeGreaterThanOrEqual(330)
-  })
-
   // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Vm/OpenVmSshEndpoint.cs HandleAsync (WEBSOCKET_REQUIRED) ·
   // OpenViCloud/titan-cli:command/vm/vm.go resolve (unknown name) ·
   // OpenViCloud/titan-control-plane:Titan.Domain/Aggregates/Compute/Vm/Vm.cs ShellInstanceName (not running) ·
@@ -414,6 +409,24 @@ test.describe.serial('cli', () => {
     expect(stopped.code).not.toBe(0)
     expect(stopped.stderr).toContain('(VM_INVALID_STATUS)')
     expect(countOf(await activityOf(VM_NAME), 'vm.ssh_requested')).toBe(before)
+
+    // CLI-10 runs after this case, on the same VM: start it again and wait until ssh answers.
+    expectStatus(await call('tenant', 'POST', `/v1/tenant/vms/${vmId}/start`), 202)
+    await waitVm(`CLI-11 ${VM_NAME} running again`, vmId, (v) => runs(v))
+    const again = await sshOnceUp('CLI-11', 'yes')
+    expect(again.code, again.stderr).toBe(0)
+  })
+
+  // Last of the chain: if the edge cuts this long session, no later case goes unmeasured.
+  // OpenViCloud/titan-control-plane:Titan.Infrastructure/Sessions/ShellRelay.cs ShellRelayOptions.Default (IdleTimeout): only 30 minutes without a byte either way ends a session
+  test('CLI-10 a session with no byte for 5 minutes stays open', async () => {
+    const started = Date.now()
+    const result = await vmSsh('rg-key', 'yes', ['sleep 330; echo alive'])
+    const seconds = Math.round((Date.now() - started) / 1000)
+    log(`CLI-10 exit=${result.code} stdout="${result.stdout.trim()}" after ${seconds} s`)
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout.trim()).toBe('alive')
+    expect(seconds).toBeGreaterThanOrEqual(330)
   })
 
   test.afterAll(async () => {
@@ -501,15 +514,19 @@ test.describe.serial('cli lifecycle', () => {
   let extraVmId = ''
 
   test.afterAll(async () => {
+    const steps: Array<[string, () => Promise<void>]> = []
     if (extraVmId !== '') {
-      await deleteVmAndWait(extraVmId)
+      steps.push([`delete VM ${extraVmId}`, () => deleteVmAndWait(extraVmId)])
     }
     if (lifecycleVmId !== '') {
-      await deleteVmAndWait(lifecycleVmId)
+      steps.push([`delete VM ${lifecycleVmId}`, () => deleteVmAndWait(lifecycleVmId)])
     }
     if (lifecycleKeyId !== '') {
-      expectStatus(await call('tenant', 'DELETE', `/v1/tenant/ssh-keys/${lifecycleKeyId}`), 204)
+      steps.push([`delete SSH key ${lifecycleKeyId}`, async () => {
+        expectStatus(await call('tenant', 'DELETE', `/v1/tenant/ssh-keys/${lifecycleKeyId}`), 204)
+      }])
     }
+    await cleanUp(steps)
   })
 
   // OpenViCloud/titan-cli:command/sshkey/sshkey.go newAdd (add), newList (list) · OpenViCloud/titan-ops:docs/features/vm/design.md#ssh-key

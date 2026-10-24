@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { closeSessions, useBrowser } from './auth'
 import { bodyOf, call, expectError, expectStatus, get, log, newKey, pollUntil, startLog } from './api'
+import { cleanUp } from './clean-up'
 import { runNetwork } from './fixtures'
 
 // Cases FW-01..05 and FW-07..08 of plan.md: FW-07 reads the Incus host, FW-08 is NOT COVERED; rules of a
@@ -69,13 +70,17 @@ test.describe.serial('firewall', () => {
 
   test.afterAll(async () => {
     test.setTimeout(15 * 60_000)
+    const steps: Array<[string, () => Promise<void>]> = []
     for (const id of made) {
-      await deleteWhenReady(id)
+      steps.push([`delete rule ${id}`, () => deleteWhenReady(id)])
     }
     for (const id of made) {
-      await pollUntil(`rule ${id} gone`, () => readRule(id), (r) => r.currentExistence === 'Gone', ruleShape)
+      steps.push([`rule ${id} gone`, async () => {
+        await pollUntil(`rule ${id} gone`, () => readRule(id), (r) => r.currentExistence === 'Gone', ruleShape)
+      }])
     }
-    await closeSessions()
+    steps.push(['close sessions', closeSessions])
+    await cleanUp(steps)
   })
 
   // OpenViCloud/titan-control-plane:Titan.Infrastructure/Endpoints/Network/CreateFirewallRuleEndpoint.cs (Configure: Post("v1/tenant/networks/{networkId:guid}/firewall-rules");
